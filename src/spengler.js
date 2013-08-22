@@ -35,24 +35,30 @@
  * ***** END LICENSE BLOCK ***** */
 var spengler = spengler || {};
 
-spengler.namespace = function(ns_string) {
-	var parts = ns_string.split('.'),
-		parent = spengler,
-		i;
+spengler.Table = function(name, columns) {
+	this._name = name;
+	var keys = Object.keys(columns), i;
 	
-	if (parts[0] === 'spengler') {
-		parts = parts.slice(1);
+	for (i = 0; i < keys.length; i += 1) {
+		(function() {
+			var key = keys[i];
+			Object.defineProperty(this, key, {
+				value: columns[key],
+			});
+		}());
 	}
-	
-	for (i = 0; i < parts.length; i += 1) {
-		if (typeof parent[parts[i]] === 'undefined') {
-			parent[parts[i]] = {};
-		}
-		
-		parent = parent[parts[i]];
-	}
-	
-	return parent;
+};
+
+spengler.Column = function(name, type, options) {	
+	this.name = name;
+	this._type = type;
+	this.options = options;
+};
+
+spengler.ForeignKey = function(parent, parentKey, childKey, onDelete, onUpdate) {
+	this._parent = parent;
+	this._parentKey = parentKey;
+	this._childKey = childKey;
 };
 
 spengler.Expression = function() {

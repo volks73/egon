@@ -1,13 +1,19 @@
-var expression = spengler.select().from('companies');
-var expression = spengler.select().from('companies').where('companies_id').equals('0');
-var expression = spengler.select([{id: 'companies_id', name: 'name'}]).from('companies');
-var expression = spengler.select([{id: 'companies_id', name: 'name'}]).from('companies').where('companies_id').equals('0');
-var expression = spengler.select([{id: 'companies_id', name: 'name'}]).from('companies').where('companies_id').lessThan('1');
-var expression = spengler.select([{id: 'companies_id', name: 'name'}]).from('companies').where('companies_id').greaterThan('1');
-var expression = spengler.select([{id: 'companies_id', name: 'name'}]).from('companies').where('companies_id').lessThanEquals('1');
-var expression = spengler.select([{id: 'companies_id', name: 'name'}]).from('companies').where('companies_id').greaterThanEquals('1');
-var expression = spengler.select([{id: 'companies_id', name: 'name'}]).from('companies').where('companies_id').greaterThan('1').and().lessThan('10');
-var expression = spengler.select([{id: 'companies_id', name: 'name'}]).from('companies').where('companies_id').greaterThan('1').and().lessThan('10').limit(5);
-var expression = spengler.select([{id: 'companies_id', name: 'name'}]).from('companies').where('companies_id').greaterThan('1').and().lessThan('10').orderBy('DESC').limit(5);
+var Company = new egon.Category(companiesTable);
+var JobOrderNumber = new egon.Category(jobOrderNumbersTable);
+var PurchaseOrder = new egon.Category(purchaseOrderTable);
 
-var expression = spengler.insert({f1: '1', f2: '1.2', f3: true, f4: 'blah', f5: null}).into('companies');
+var aCompany = new Company();
+aCompany.name = 'Test Company 1';
+aCompany.address = 'Test Address 1';
+aCompany.phone = '18005551111';
+aCompany.fax = '18885551111';
+aCompany.website = 'http://www.example1.com';
+
+var aJobOrderNumber = new JobOrderNumber();
+aJobOrderNumber.alias = 'Test Alias 1';
+aJobOrderNumber.accountNumber = '61-8906-0-2-5';
+aJobOrderNumber.description = 'Test Description 1';
+
+var aPurchaseOrder = new PurchaseOrder();
+aPurchaseOrder.company = aCompany;
+aPurchaseOrder.jobOrderNumber = aJobOrderNumber;

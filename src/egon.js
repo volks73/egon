@@ -35,22 +35,8 @@
  * ***** END LICENSE BLOCK ***** */
 var egon = egon || {};
 
-egon.namespace = function(ns_string) {
-	var parts = ns_string.split('.'), parent = egon, i;
-
-	if (parts[0] === 'egon') {
-		parts = parts.slice(1);
-	}
-
-	for (i = 0; i < parts.length; i += 1) {
-		if (typeof parent[parts[i]] === 'undefined') {
-			parent[parts[i]] = {};
-		}
-
-		parent = parent[parts[i]];
-	}
-
-	return parent;
+egon.init = function(databaseFile) {
+	egon._metadata = {};
 };
 
 egon.Session = function() {
@@ -111,12 +97,24 @@ egon.Session = function() {
 	};
 };
 
-egon.Entity = function(session, tableName, fields) {
-	function Entity() {
-		var entity = this, keys = Object.keys(fields), i;
+egon.getMetadata = function(tableName) {
+	if (egon._metadata[tableName] === undefined) {
+		// This will be a little more involved once other details are flushed out.
+		// For example, the columns need to be added to the table and foreign keys
+		// added as needed.
+		egon._metadata[tableName] = new egon.Table(tableName);
+	} 
+	
+	return egon._metadata[tableName];
+};
+
+// May want to change this to MappedClass
+egon.Class = function(tableName, columns) {
+	function Class() {
+		var class = this, keys = Object.keys(columns), i;
 		
 		this.id = null;
-		this._table = tableName;
+		this._table = egon.metadata[tableName];
 		this._fields = fields;
 		this._data = {};
 		this._listeners = [];
@@ -131,11 +129,11 @@ egon.Entity = function(session, tableName, fields) {
 			 */
 			(function() {
 				var key = keys[i];
-				Object.defineProperty(entity, key, {
+				Object.defineProperty(class, key, {
 					set : function(newValue) {
-						var oldValue = entity._data[key];
-						entity._data[key] = newValue;
-						entity._firePropertyChangeEvent({
+						var oldValue = class._data[key];
+						class._data[key] = newValue;
+						class._firePropertyChangeEvent({
 							source : entity,
 							property : key,
 							newValue : newValue,
@@ -143,11 +141,11 @@ egon.Entity = function(session, tableName, fields) {
 						});
 					},
 					get : function() {
-						return entity._data[key];
+						return class._data[key];
 					},
 				});
 				
-				entity._data[key] = fields[key].defaultValue;
+				class._data[key] = columns[key].defaultValue;
 			}());
 		}
 		
@@ -156,7 +154,7 @@ egon.Entity = function(session, tableName, fields) {
 		}
 	};
 	
-	Entity.prototype._firePropertyChangeEvent = function(event) {		
+	Class.prototype._firePropertyChangeEvent = function(event) {		
 		var i;
 		
 		for (i = 0; i < this._listeners.length; i += 1) {
@@ -164,11 +162,11 @@ egon.Entity = function(session, tableName, fields) {
 		}
 	};
 
-	Entity.prototype.addListener = function(listener) {
+	Class.prototype.addListener = function(listener) {
 		this._listeners.push(listener);
 	};
 
-	Entity.prototype.removeListener = function(listener) {
+	Class.prototype.removeListener = function(listener) {
 		var i;
 
 		for (i = 0; i < this._listeners.length; i += 1) {
@@ -178,31 +176,11 @@ egon.Entity = function(session, tableName, fields) {
 		}
 	};
 
-	return Entity;
+	return Class;
 };
 
-egon.Field = function(columnName, type, defaultValue) {
-	this.columnName = columnName;
-	this.type = type;
-	this.defaultValue = defaultValue;
-};
-
-egon.namespace('egon.schema');
-
-egon.schema.types = {
-	TEXT : 'text',
-	BOOLEAN : 'boolean',
-	INTEGER : 'integer',
-	DECIMAL : 'decimal',
-	DATE : 'date',
-};
-
-egon.schema.Table = function(name, columns) {
+egon.Column = function(name, type, options) {
 	this.name = name;
-	this.columns = columns;
-};
-
-egon.schema.Column = function(name, type) {
-	this.name = name;
-	this.type = type;
+	this._type = type;
+	this.defaultValue = options.defaultValue || this._type.defaultValue;
 };
