@@ -97,8 +97,10 @@ var egon = {};
 	/**
 	 * Constructor for a SQL database table.
 	 * 
+	 * Note, constraints and keys are handled at the column level.
+	 * 
 	 * @param name The name of this table.
-	 * @param schema The columns and constraints for this table.
+	 * @param schema The columns for this table.
 	 */
 	function Table(name, schema) {
 		var that = this,
@@ -167,14 +169,26 @@ var egon = {};
 
 	egon.Table = Table;
 	
+	// TODO: Add support for creating indices for a table on a column.
+	
 	/**
 	 * Constructor for a SQL database column.
 	 * 
-	 * Options: primaryKey, autoIncrement, notNull, unique, defaultValue, and collate.
+	 * The <code>options</code> parameter for this constructor can have any or all of the following
+	 * properties: primaryKey, autoIncrement, notNull, unique, defaultValue, collate, foreignKey. A
+	 * default value is set if the property is <code>undefined</code> in the option object.
+	 *
+	 * The <code>primaryKey</code> option is a boolean value indicating if the column is the primary key for the table.
+	 * The <code>autoIncrement</code> option is a boolean value indicating if the ID should be auto incremented.
+	 * The <code>notNull</code> option is a boolean value indicating if the NULL value is not acceptable.
+	 * The <code>unique</code> option is a boolean value indicating if the rows must have a unqiue value for this column.
+	 * The <code>defaultValue</code> option is the default value used on 'insert' commands.
+	 * The <code>collate</code> option is a string from the <code>Column.collate</code> constants.
+	 * The <code>foreignKey</code> option is a <code>ForeignKey</code> object.
 	 * 
 	 * @param name The column name.
 	 * @param type The column type.
-	 * @param options (Optional) An object with keys for column options.
+	 * @param options (Optional) An object with any or all of the following properties: <code>primaryKey</code>, <code>autoIncrement</code>, <code>notNull</code>, <code>unique</code>, <code>defaultValue</code>, <code>collate</code>, and/or <code>foreignKey</code>.
 	 */
 	function Column(name, type, options) {
 		this.name = name;
@@ -198,12 +212,18 @@ var egon = {};
 		this._foreignKey = options.foreignKey || null;
 	};
 	
+	/**
+	 * The possible values for the 'collate' option.
+	 */
 	Column.prototype.collate = {
 		BINARY: 'BINARY',
 		NOCASE: 'NOCASE',
 		RTRIM: 'RTRIM',	
 	};
 	
+	/**
+	 * The possible values for the 'conflict' option.
+	 */
 	Column.prototype.conflict = {
 		ROLLBACK: 'ROLLBACK',
 		ABORT: 'ABORT',
@@ -258,6 +278,15 @@ var egon = {};
 
 	egon.Column = Column;
 	
+	/**
+	 * Constructor for a Foreign Key.
+	 * 
+	 * @param name A <code>String</code> object. The name of the constraint.
+	 * @param parent A <code>Table</code> object. The parent or foreign table.
+	 * @param parentColumns An <code>Array</code> object. The columns in the parent, or foreign, table.
+	 * @param onDelete (Optional) A <code>String</code> object from the <code>actions</code> constants.
+	 * @param onUpdate (Optional) A <code>String</code> object from the <code>actions</code> constants. 
+	 */
 	function ForeignKey(name, parent, parentColumns, onDelete, onUpdate) {
 		this._name = name;
 		this._parent = parent;
