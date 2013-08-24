@@ -53,22 +53,6 @@ var egon = {};
 		DATE: {display: 'date', dbType: 'TEXT', jsType: new Date()},
 	};
 	
-	egon.sql = {};
-	
-	egon.sql.collate = {
-		BINARY: 'BINARY',
-		NOCASE: 'NOCASE',
-		RTRIM: 'RTRIM',
-	};
-	
-	egon.sql.conflict = {
-		ROLLBACK: 'ROLLBACK',
-		ABORT: 'ABORT',
-		FAIL: 'FAIL',
-		IGNORE: 'IGNORE',
-		REPLACE: 'REPLACE',
-	};
-	
 	/**
 	 * Converts the metadata, database tables, into a string.
 	 */
@@ -169,12 +153,12 @@ var egon = {};
 		
 		for (key in that) {
 			if (that[key] instanceof Column) {
-				sql += that[key].toSQL() + ", ";
+				sql += that[key].toSQL() + ", \n";
 			}
 		}
 		
 		// Remove trailing comma and space.
-		sql = sql.slice(0, -2);
+		sql = sql.slice(0, -3);
 		
 		sql += ")";
 		
@@ -211,6 +195,21 @@ var egon = {};
 		this._collate = options.collate || null;
 
 		// TODO: Add foreign key support.
+		this._foreignKey = options.foreignKey || null;
+	};
+	
+	Column.prototype.collate = {
+		BINARY: 'BINARY',
+		NOCASE: 'NOCASE',
+		RTRIM: 'RTRIM',	
+	};
+	
+	Column.prototype.conflict = {
+		ROLLBACK: 'ROLLBACK',
+		ABORT: 'ABORT',
+		FAIL: 'FAIL',
+		IGNORE: 'IGNORE',
+		REPLACE: 'REPLACE',
 	};
 	
 	Column.prototype.toString = function() {
@@ -250,12 +249,73 @@ var egon = {};
 			sql += " COLLATE " + this._collate;
 		}
 		
-		// TODO: Add foreign-key-clause support.
+		if (this._foreignKey) {
+			sql += " " + this._foreignKey.toSQL();
+		}
 		
 		return sql;
 	};
 
 	egon.Column = Column;
+	
+	function ForeignKey(name, parent, parentColumns, onDelete, onUpdate) {
+		this._name = name;
+		this._parent = parent;
+		this._columns = parentColumns;
+		this._onDelete = onDelete || false;
+		this._onUpdate = onUpdate || false;
+		
+		// TODO: Add support for 'MATCH' clause
+		// TODO: Add support for 'DEFERRABLE' clause
+	};
+	
+	ForeignKey.prototype.actions = {
+		SET_NULL: 'SET NULL',
+		SET_DEFAULT: 'SET DEFAULT',
+		CASCADE: 'CASCADE',
+		RESTRICT: 'RESTRICT',
+		NO_ACTION: 'NO ACTION',
+	};
+		
+	ForeignKey.prototype.defers = {
+		DEFERRED: 'INITIALLY DEFERRED',
+		IMMEDIATE: 'INITIALLY IMMEDIATE',
+	};
+	
+	ForeignKey.prototype.toString = function() {
+		var str = this._name + " parent: " + this._parent + "\n columns: \n",
+			i;
+		
+		for (i = 0; i < this._columns.length; i += 1) {
+			str += this._columns[i] + "\n";
+		}
+		
+		return str;
+	};
+	
+	ForeignKey.prototype.toSQL = function() {
+		var sql = "CONSTRAINT " + this._name + " REFERENCES " + this._parent._name + " (",
+			i;
+		
+		for (i = 0; i < this._columns.length; i += 1) {
+			sql += this._columns[i].name + ",";
+		}
+		
+		// Remove trailing comma.
+		sql = sql.slice(0, -1) + ")";
+		
+		if (this._onDelete) {
+			sql += "ON DELETE " + this._onDelete;
+		}
+		
+		if (this._onUpdate) {
+			sql += "ON UPDATE " + this._onUpdate;
+		}
+		
+		return sql;
+	};
+	
+	egon.ForeignKey = ForeignKey;
 	
 	// May want to change this to MappedClass as a name for the constructor
 	function Class(tableName, columns) {

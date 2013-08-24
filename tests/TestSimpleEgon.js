@@ -24,8 +24,8 @@ hazmatCodesTable.description = new egon.Column('description', egon.types.TEXT, {
 
 var purchaseOrdersTable = new egon.Table('purchase_orders');
 purchaseOrdersTable.id = new egon.Column('purchase_orders_id', egon.types.INTEGER, {primaryKey: true, notNull: true, defautlValue: null, autoIncrement: true});
-purchaseOrdersTable.company = new egon.Column(companiesTable.id.name, egon.types.INTEGER, {notNull: true, defaultValue: null, foreignKey: {parent: companiesTable, column: companiesTable.id}});
-purchaseOrdersTable.jobOrderNumber = new egon.Column(jobOrderNumbersTable.id.name, egon.types.INTEGER, {notNull: true, defaultValue: null, foreignKey: {parent: jobOrderNumbersTable, column: jobOrderNumbersTable.id}});
+purchaseOrdersTable.company = new egon.Column(companiesTable.id.name, egon.types.INTEGER, {notNull: true, defaultValue: null, foreignKey: new egon.ForeignKey('company', companiesTable, [companiesTable.id])});
+purchaseOrdersTable.jobOrderNumber = new egon.Column(jobOrderNumbersTable.id.name, egon.types.INTEGER, {notNull: true, defaultValue: null, foreignKey: new egon.ForeignKey('job_order_number', jobOrderNumbersTable, [jobOrderNumbersTable.id])});
 purchaseOrdersTable.title = new egon.Column('title', egon.types.TEXT, {notNull: true, defaultValue: null});
 purchaseOrdersTable.originator = new egon.Column('originator', egon.types.TEXT, {notNull: true, defaultValue: null});
 purchaseOrdersTable.deliverTo = new egon.Column('deliver_to', egon.types.TEXT, {notNull: true, defaultValue: null});
@@ -37,16 +37,15 @@ purchaseOrdersTable.dateAdded = new egon.Column('date_added', egon.types.DATE, {
 
 var itemsTable = new egon.Table('items');
 itemsTable.id = new egon.Column('items_id', egon.types.INTEGER, {primaryKey: true, notNull: true, defaultValue: null, autoIncrement: true});
-itemsTable.purchaseOrder = new egon.Column(purchaseOrdersTable.id.name, egon.types.INTEGER, {notNull: true, defaultValue: null, foreignKey: {parent: purchaseOrdersTable, column: purchaseOrdersTable.id}});
+itemsTable.purchaseOrder = new egon.Column(purchaseOrdersTable.id.name, egon.types.INTEGER, {notNull: true, defaultValue: null, foreignKey: new egon.ForeignKey('purchase_order', purchaseOrdersTable, [purchaseOrdersTable.id])});
 itemsTable.partNumber = new egon.Column('part_number', egon.types.TEXT, {notNull: true, defaultValue: null});
 itemsTable.description = new egon.Column('description', egon.types.TEXT, {notNull: true, defaultValue: null});
-itemsTable.hazmatCode = new egon.Column('hazmat_codes_id', egon.types.INTEGER, {notNull: true, defaultValue: null, foreignKey: {parent: hazmatCodesTable, column: hazmatCodesTable.id}});
+itemsTable.hazmatCode = new egon.Column('hazmat_codes_id', egon.types.INTEGER, {notNull: true, defaultValue: null, foreignKey: new egon.ForeignKey('hazmat_code', hazmatCodesTable, [hazmatCodesTable.id])});
 itemsTable.unitOfIssue = new egon.Column('unit_of_issue', egon.types.TEXT, {notNull: true, defaultValue: null});
 itemsTable.unitPrice = new egon.Column('unit_price', egon.types.DECIMAL, {notNull: true, defaultValue: null});
 itemsTable.unitPrice = new egon.Column('quantity', egon.types.INTEGER, {notNull: true, defaultValue: null});
 itemsTable.dateAdded = new egon.Column('date_added', egon.types.DATE, {notNull: true, defaultValue: null});
 
-console.log(egon.toString());
 console.log(companiesTable.toSQL());
 console.log(jobOrderNumbersTable.toSQL());
 console.log(hazmatCodesTable.toSQL());

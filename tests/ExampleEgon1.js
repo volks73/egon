@@ -1,4 +1,4 @@
-egon.init(databaseFile);
+egon.init(databaseConnection);
 
 var companiesTable = new egon.Table('companies');
 companiesTable.id = new egon.Column('companies_id', egon.types.INTEGER, {primaryKey: true, notNull: true, defaultValue: null, autoIncrement: true});
@@ -44,4 +44,4 @@ itemsTable.unitPrice = new egon.Column('unit_price', egon.types.DECIMAL, {notNul
 itemsTable.unitPrice = new egon.Column('quantity', egon.types.INTEGER, {notNull: true, defaultValue: null});
 itemsTable.dateAdded = new egon.Column('date_added', egon.types.DATE, {notNull: true, defaultValue: null});
 
-egon.createMetaData();
+egon.createAll();
