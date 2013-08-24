@@ -51,3 +51,5 @@ console.log(jobOrderNumbersTable.toSQL());
 console.log(hazmatCodesTable.toSQL());
 console.log(purchaseOrdersTable.toSQL());
 console.log(itemsTable.toSQL());
+
+jobOrderNumbersTable.insert({alias: 'test1', accountNumber: '11111111', description: 'test description 1'})

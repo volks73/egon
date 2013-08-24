@@ -159,14 +159,45 @@ var egon = {};
 			}
 		}
 		
-		// Remove trailing comma and space.
-		sql = sql.slice(0, -3);
-		
-		sql += ")";
+		// Remove trailing newline character, comma, and space.
+		sql = sql.slice(0, -3) + ")";
 		
 		return sql;
 	};
 
+	Table.prototype.insert = function(values) {
+		var sql = "INSERT INTO " + this._name + " (",
+			that = this,
+			columnSQL = '',
+			valueSQL = '',
+			key,
+			stmt,
+			params,
+			bindParam;
+			
+		for (key in values) {
+			if (that[key] instanceof Column) {
+				columnSQL += that[key].name + ", ";
+				valueSQL += ":" + key + ", ";
+			}
+		}
+	
+		// Remove trailing comma and space.
+		sql += columnSQL.slice(0, -2) + ") VALUES (" + valueSQL.slice(0, -2) + ")";
+		
+		stmt = dbConn.createAsyncStatement(sql);
+		params = stmt.newBindingParamsArray();
+		
+		for (key in values) {
+			bindParam = params.newBindingParams();
+			bindParam.bindByName(key, values[key]);
+			params.addParams(bindParam);
+		}
+		
+		stmt.bindParameters(params);
+		stmt.executeAsync();
+	};
+	
 	egon.Table = Table;
 	
 	// TODO: Add support for creating indices for a table on a column.
