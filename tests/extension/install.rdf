@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><RDF xmlns="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:RDF="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:em="http://www.mozilla.org/2004/em-rdf#">
+	<RDF:Description about="urn:mozilla:install-manifest">
+		<em:id>Egon@volks73.github.com</em:id>
+		<em:version>0.0.1</em:version>
+		<em:type>2</em:type>
+
+		<em:targetApplication>
+			<RDF:Description>
+				<em:id>{ec8030f7-c20a-464f-9b0e-13a3a9e97384}</em:id>
+				<em:minVersion>4.0</em:minVersion>
+				<em:maxVersion>23.0.*</em:maxVersion>
+			</RDF:Description>
+		</em:targetApplication>
+		
+		<em:name>Egon</em:name>
+		<em:description>A test extension for the Egon JavaScript Module and Library</em:description>
+		<em:creator>Christopher R. Field</em:creator>
+		<em:homepageURL/>
+		<em:optionsURL/>
+		<em:aboutURL/>
+		<em:updateURL/>
+		<em:updateKey/>
+		<em:hidden/>
+		<em:developer>Christopher R. Field</em:developer>
+		<em:targetPlatform/>
+	</RDF:Description>
+</RDF>

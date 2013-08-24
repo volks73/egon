@@ -1,0 +1,7 @@
+content     Egon    			chrome/content/
+locale		Egon	en-US		locale/en-US/
+skin		Egon	classic/1.0	skin/
+
+resource	Egon	../../src/
+
+overlay chrome://browser/content/browser.xul chrome://Egon/content/browser.xul

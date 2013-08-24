@@ -33,154 +33,300 @@
  * the terms of any one of the MPL, the GPL or the LGPL.
  *
  * ***** END LICENSE BLOCK ***** */
-var egon = egon || {};
+var EXPORTED_SYMBOLS = ["egon"];
 
-egon.init = function(databaseFile) {
-	egon._metadata = {};
-};
+var egon = {};
 
-egon.Session = function() {
-	this.actions = [];
-	this.conn = null;
+(function() {
+	var dbConn, metadata = {};
 
-	// TODO: Create connection to database file.
-
-	this.propertyChanged = function(event) {
-		// TODO: Mark entity for update.
-		console.info("'" + event.property + "' changed from: '"
-				+ event.oldValue + "' to: '" + event.newValue + "'");
-		// TODO: Create SQL expression for updating the entity in the database.
-	};
-
-	this.commit = function() {
-		var i;
-
-		for (i = 0; i < this.actions.length; i += 1) {
-			console.log(this.actions[i].toString());
-			// TODO: Execute SQL expressions
-		}
-	};
-
-	this.add = function(entity) {
-		entity.addListener(this);
-
-		var values = {}, keys = Object.keys(entity._fields), key, i;
-
-		for (i = 0; i < keys.length; i += 1) {
-			// TODO: Convert values based on column types.
-			key = keys[i];
-			values[entity._fields[key].columnName] = entity[key];
-		}
-
-		var insertExpression = new spengler.Expression();
-		insertExpression.insert().into(entity._table).values(values);
-
-		this.actions.push(insertExpression);
-	};
-
-	this.query = function() {
-		// TODO: Execute a query to the database, typically to retrieve all
-		// of the entities.
-	};
-
-	this.remove = function(entity) {
-		entity.removeListnener(this);
-		// TODO: Create SQL expression for deleting the entity from the
-		// database.
-		// TODO: Add SQL expression to statements to execute on 'commit'.
-	};
-
-	this.createSchema = function(tables) {
-		// TODO: Create SQL expression for creating database tables, this
-		// includes relationships.
-		// TODO: execute series of SQL expressions for creating tables.
-	};
-};
-
-egon.getMetadata = function(tableName) {
-	if (egon._metadata[tableName] === undefined) {
-		// This will be a little more involved once other details are flushed out.
-		// For example, the columns need to be added to the table and foreign keys
-		// added as needed.
-		egon._metadata[tableName] = new egon.Table(tableName);
-	} 
-	
-	return egon._metadata[tableName];
-};
-
-// May want to change this to MappedClass
-egon.Class = function(tableName, columns) {
-	function Class() {
-		var class = this, keys = Object.keys(columns), i;
-		
-		this.id = null;
-		this._table = egon.metadata[tableName];
-		this._fields = fields;
-		this._data = {};
-		this._listeners = [];
-		
-		for (i = 0; i < keys.length; i += 1) {
-			/*
-			 * A closure is needed in order to save the state of the 'property'
-			 * variable. If a closure is not used, then the 'property' state, or
-			 * value, is the last value passed to it in the loop. Creating the
-			 * closure saves the state when the anonymous function that creates
-			 * the closure was called in the loop.
-			 */
-			(function() {
-				var key = keys[i];
-				Object.defineProperty(class, key, {
-					set : function(newValue) {
-						var oldValue = class._data[key];
-						class._data[key] = newValue;
-						class._firePropertyChangeEvent({
-							source : entity,
-							property : key,
-							newValue : newValue,
-							oldValue : oldValue,
-						});
-					},
-					get : function() {
-						return class._data[key];
-					},
-				});
-				
-				class._data[key] = columns[key].defaultValue;
-			}());
-		}
-		
-		if (session !== undefined) {
-			session.add(this);
-		}
+	// TODO: Add functions for formatting and returning values appropriate for interaction with the database.
+	// SQLite3 supported types: NULL, INTEGER, REAL, TEXT, and BLOB. Boolean values are handled as integers 0 = false, 1 = true
+	// Date and Time are handled as either TEXT using the ISO8601 string: YYYY-MM-DD HH:MM:SS.SSS, REAL as Julian day numbers,
+	// and INTEGERs as Unix Time, the number of seconds since 1970-01-01 00:00:00 UTC. See column affinity documentation with SQLite3.
+	egon.types = {
+		NULL: {display: 'null', dbType: 'NULL', jsType: null},
+		TEXT: {display: 'text', dbType: 'TEXT', jsType: ''},
+		INTEGER: {display: 'integer', dbType: 'INTEGER', jsType: 0},
+		BOOLEAN: {display: 'boolean', dbType: 'INTEGER', jsType: false},
+		DECIMAL: {display: 'decimal', dbType: 'REAL', jsType: 0.0},
+		DATE: {display: 'date', dbType: 'TEXT', jsType: new Date()},
 	};
 	
-	Class.prototype._firePropertyChangeEvent = function(event) {		
-		var i;
+	egon.sql = {};
+	
+	egon.sql.collate = {
+		BINARY: 'BINARY',
+		NOCASE: 'NOCASE',
+		RTRIM: 'RTRIM',
+	};
+	
+	egon.sql.conflict = {
+		ROLLBACK: 'ROLLBACK',
+		ABORT: 'ABORT',
+		FAIL: 'FAIL',
+		IGNORE: 'IGNORE',
+		REPLACE: 'REPLACE',
+	};
+	
+	/**
+	 * Converts the metadata, database tables, into a string.
+	 */
+	// TODO: Change to a more universal function where keywords are passed to the function and string is assembled based on keywords.
+	// For example, passing 'metadata' as a keyword, would create a string based on the metadata.
+	egon.toString = function() {
+		var key, str = "";
 		
-		for (i = 0; i < this._listeners.length; i += 1) {
-			this._listeners[i].propertyChanged(event);
+		for (key in metadata) {
+			if (metadata.hasOwnProperty(key)) {
+				str += metadata[key] + "\n";
+			}
 		}
+		
+		return str;
 	};
-
-	Class.prototype.addListener = function(listener) {
-		this._listeners.push(listener);
+	
+	/**
+	 * Initializes the library.
+	 */
+	egon.init = function(aDBConn) {
+		dbConn = aDBConn;
 	};
-
-	Class.prototype.removeListener = function(listener) {
-		var i;
-
-		for (i = 0; i < this._listeners.length; i += 1) {
-			if (this._listeners[i] === listener) {
-				this._listeners.splice(i, 1);
+	
+	/**
+	 * Creates all of the metadata, or database tables. The "IF NOT EXIST" clause is used, so the
+	 * tables will not be deleted or overwritten if they already exist.
+	 */
+	egon.createAll = function() {
+		var key, stmt;
+		
+		for (key in metadata) {
+			if (metadata.hasOwnProperty(key)) {
+				// TODO: Change dbConn to universal interface. Right now it uses the Mozilla-specific Storage interface to 
+				// interact with a SQLite database. This should be abstracted to be used for any database in any environment.
+				stmt = dbConn.createAsyncStatement(metadata[key].toSQL());
+				stmt.executeAsync();
 			}
 		}
 	};
+	
+	/**
+	 * Constructor for a SQL database table.
+	 * 
+	 * @param name The name of this table.
+	 * @param schema The columns and constraints for this table.
+	 */
+	function Table(name, schema) {
+		var that = this,
+			keys,
+			i;
 
-	return Class;
-};
+		this._name = name;
+		
+		if (typeof columns !== 'undefined') {
+			keys = Object.keys(schema);
+			
+			for (i = 0; i < keys.length; i += 1) {
+				(function() {
+					Object.defineProperty(that, keys[i], {
+						value: schema[key],
+						writable: true,
+						enumerable: true,
+						configurable: true,
+					});
+				}());
+			}
+		}
+		
+		metadata[this._name] = this;
+	};
+	
+	Table.prototype.toString = function() {
+		var str = "table: " + this._name + "\n", 
+			that = this,
+			key;
+		
+		for (key in that) {
+			if (that[key] instanceof Column) {
+				str += "\t" + that[key] + "\n";
+			}
+		}
+		
+		return str;
+	};
+	
+	/**
+	 * Creates a SQL string to create this table in a database. The 'IF NOT EXISTS' clause is
+	 * used to prevent corrupting the database or overwriting data.
+	 * 
+	 * @returns {String}
+	 */
+	Table.prototype.toSQL = function() {
+		// CREATE TABLE IF NOT EXISTS tableName (column-name type-name column-constraint, table-constraint)
+		var sql = "CREATE TABLE IF NOT EXISTS " + this._name + " (\n",
+			that = this,
+			key;
+		
+		for (key in that) {
+			if (that[key] instanceof Column) {
+				sql += that[key].toSQL() + ", ";
+			}
+		}
+		
+		// Remove trailing comma and space.
+		sql = sql.slice(0, -2);
+		
+		sql += ")";
+		
+		return sql;
+	};
 
-egon.Column = function(name, type, options) {
-	this.name = name;
-	this._type = type;
-	this.defaultValue = options.defaultValue || this._type.defaultValue;
-};
+	egon.Table = Table;
+	
+	/**
+	 * Constructor for a SQL database column.
+	 * 
+	 * Options: primaryKey, autoIncrement, notNull, unique, defaultValue, and collate.
+	 * 
+	 * @param name The column name.
+	 * @param type The column type.
+	 * @param options (Optional) An object with keys for column options.
+	 */
+	function Column(name, type, options) {
+		this.name = name;
+		this._type = type;
+		
+		// TODO: Add support for conflict-clause
+		this._primaryKey = options.primaryKey || false;
+		this._autoIncrement = options.autoIncrement || false;
+		
+		// TODO: Add conflict-clause
+		this._notNull = options.notNull || false;
+		
+		// TODO: Add support for conflict-clause
+		this._unique = options.unique || false;
+		
+		// TODO: Add expression support
+		this._default = options.defaultValue || 'NULL';
+		this._collate = options.collate || null;
+
+		// TODO: Add foreign key support.
+	};
+	
+	Column.prototype.toString = function() {
+		return "column: " + this.name + " " + this._type.display; 
+	};
+	
+	/**
+	 * Creates an SQL string to create the column for a table.
+	 * 
+	 * @returns {String}
+	 */
+	Column.prototype.toSQL = function() {
+		// TODO: Add column-constraint support.
+		var sql = this.name + " " + this._type.dbType;
+		
+		if (this._primaryKey) {
+			sql += " PRIMARY KEY";
+		}
+		
+		if (this._autoIncrement) {
+			sql += " AUTOINCREMENT";
+		}
+		
+		if (this._notNull) {
+			sql += " NOT NULL";
+		}
+		
+		if (this._unique) {
+			sql += " UNIQUE";
+		}
+		
+		if (this._default) {
+			sql += " DEFAULT " + this._default;
+		}
+		
+		if (this._collate) {
+			sql += " COLLATE " + this._collate;
+		}
+		
+		// TODO: Add foreign-key-clause support.
+		
+		return sql;
+	};
+
+	egon.Column = Column;
+	
+	// May want to change this to MappedClass as a name for the constructor
+	function Class(tableName, columns) {
+		function Class() {
+			var that = this, keys = Object.keys(columns), i;
+			
+			this.id = null;
+			this._table = egon.metadata[tableName];
+			this._fields = fields;
+			this._data = {};
+			this._listeners = [];
+			
+			for (i = 0; i < keys.length; i += 1) {
+				/*
+				 * A closure is needed in order to save the state of the 'property'
+				 * variable. If a closure is not used, then the 'property' state, or
+				 * value, is the last value passed to it in the loop. Creating the
+				 * closure saves the state when the anonymous function that creates
+				 * the closure was called in the loop.
+				 */
+				(function() {
+					var key = keys[i];
+					Object.defineProperty(that, key, {
+						set : function(newValue) {
+							var oldValue = that._data[key];
+							that._data[key] = newValue;
+							that._firePropertyChangeEvent({
+								source : entity,
+								property : key,
+								newValue : newValue,
+								oldValue : oldValue,
+							});
+						},
+						get : function() {
+							return that._data[key];
+						},
+					});
+					
+					that._data[key] = columns[key].defaultValue;
+				}());
+			}
+			
+			if (session !== undefined) {
+				session.add(this);
+			}
+		};
+		
+		Class.prototype._firePropertyChangeEvent = function(event) {		
+			var i;
+			
+			for (i = 0; i < this._listeners.length; i += 1) {
+				this._listeners[i].propertyChanged(event);
+			}
+		};
+
+		Class.prototype.addListener = function(listener) {
+			this._listeners.push(listener);
+		};
+
+		Class.prototype.removeListener = function(listener) {
+			var i;
+
+			for (i = 0; i < this._listeners.length; i += 1) {
+				if (this._listeners[i] === listener) {
+					this._listeners.splice(i, 1);
+				}
+			}
+		};
+
+		return Class;
+	};
+	
+	egon.Class = Class;
+}());
