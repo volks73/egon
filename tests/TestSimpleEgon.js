@@ -54,3 +54,7 @@ console.log(itemsTable.compile());
 
 console.log(jobOrderNumbersTable.insert().compile());
 console.log(jobOrderNumbersTable.insert().values({alias: 'test job order number', accountNumber: '11-1111-1-1-1', description: 'Test description'}).compile());
+console.log(jobOrderNumbersTable.update().compile());
+console.log(jobOrderNumbersTable.update().values({alias: 'test update job order number', accountNumber: '22-2222-2-2-2', description: 'Test update description'}).compile());
+console.log(jobOrderNumbersTable.update().values({alias: 'test update job order number', accountNumber: '22-2222-2-2-2', description: 'Test update description'}).where(jobOrderNumbersTable.id.name + ' == ' + '1').compile());
+console.log(jobOrderNumbersTable.update().values({alias: 'test update job order number', accountNumber: '22-2222-2-2-2', description: 'Test update description'}).where(jobOrderNumbersTable.id.name + ' == ' + '1').where(jobOrderNumbersTable.alias.name + ' == ' + "'test'").compile());

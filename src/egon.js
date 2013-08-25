@@ -51,6 +51,7 @@ var egon = {};
 	/**
 	 * A mapping of known JavaScript variable types to SQLite column types.
 	 * @typedef {Object} TypeConstant
+	 * @readonly
 	 */
 	egon.TYPES = {
 		NULL: {display: 'null', dbType: 'NULL', jsType: null},
@@ -65,6 +66,7 @@ var egon = {};
 	 * The column options. These are the possible properties for the 'option' object of the Column constructor.
 	 * 
 	 * @typedef {String} OptionsConstant
+	 * @readonly
 	 */
 	egon.OPTIONS = {
 		PRIMARY_KEY: 'primaryKey',
@@ -80,6 +82,7 @@ var egon = {};
 	 * The possible values for the 'collate' option.
 	 * 
 	 * @typedef {String} CollateConstant
+	 * @readonly
 	 */
 	egon.COLLATE = {
 		BINARY: 'BINARY',
@@ -91,6 +94,7 @@ var egon = {};
 	 * The possible values for the 'conflict' option.
 	 * 
 	 * @typedef {String} ConflictConstant
+	 * @readonly
 	 */
 	egon.CONFLICT = {
 		ROLLBACK: 'ROLLBACK',
@@ -104,6 +108,7 @@ var egon = {};
 	 * The possible values for the 'ON DELETE' and 'ON UPDATE' clauses of a Foreign Key SQL definition.
 	 * 
 	 * @typedef {String} ActionsConstant
+	 * @readonly
 	 */
 	egon.ACTIONS = {
 		SET_NULL: 'SET NULL',
@@ -117,6 +122,7 @@ var egon = {};
 	 * The possible values for the 'DEFERRABLE' clause of a Foreign Key SQL defintion.
 	 * 
 	 * @typedef {String} DefersConstant
+	 * @readonly
 	 */
 	egon.DEFERS = {
 		DEFERRED: 'INITIALLY DEFERRED',
@@ -125,6 +131,8 @@ var egon = {};
 	
 	/**
 	 * Initializes the library.
+	 * 
+	 * @param {mozIStorageConnection} aDBConn - A connection to a database. 
 	 */
 	egon.init = function(aDBConn) {
 		dbConn = aDBConn;
@@ -153,7 +161,7 @@ var egon = {};
 	 * binds the parameters, and asynchronously executes.
 	 * 
 	 * @param {Insert} expression - A SQL expression.
-	 * @param {Object} [callback] - An object implementing the 'mozIStorageStatementCallback' interface.
+	 * @param {mozIStorageStatementCallback} [callback] - A callback.
 	 */
 	// TODO: Update documentation with description of callback.
 	egon.execute = function(expression, callback) {
@@ -212,7 +220,7 @@ var egon = {};
 	/**
 	 * Gets an array of the columns for this table.
 	 * 
-	 * @returns {Array}
+	 * @returns {Array} - An array of table columns.
 	 */
 	Table.prototype.columns = function() {
 		var columns = [], 
@@ -231,7 +239,7 @@ var egon = {};
 	/**
 	 * Gets an array of foreign keys for this table.
 	 * 
-	 * @returns {Array}
+	 * @returns {Array} - An array of foreign keys.
 	 */
 	Table.prototype.foreignKeys = function() {
 		var foreignKeys = [],
@@ -293,6 +301,17 @@ var egon = {};
 	 */
 	Table.prototype.insert = function() {
 		var expression = new Insert(this);
+		
+		return expression;
+	};
+	
+	/**
+	 * Creates an {Update} object to update values in this table.
+	 * 
+	 * @returns {Update} An Update SQL expression object.
+	 */
+	Table.prototype.update = function() {
+		var expression = new Update(this);
 		
 		return expression;
 	};
@@ -362,7 +381,7 @@ var egon = {};
 	/**
 	 * Creates an SQL string to create the column for a table.
 	 * 
-	 * @returns {String} A SQL expression.
+	 * @returns {String} A SQL clause.
 	 */
 	Column.prototype.compile = function() {
 		// TODO: Add column-constraint support.
@@ -434,6 +453,11 @@ var egon = {};
 		return str;
 	};
 	
+	/**
+	 * Creates a SQL string for creating the foreign key in a table.
+	 * 
+	 * @returns {String} A SQL clause.
+	 */
 	ForeignKey.prototype.compile = function() {
 		var sql = " REFERENCES " + this.parent._name + " (",
 			i;
@@ -458,14 +482,12 @@ var egon = {};
 		
 	egon.ForeignKey = ForeignKey;
 	
-	// TODO: Create SQL Expression super object for Insert, Select, Update, and Delete.
-	
 	/**
 	 * Constructor for an Insert SQL expression.
 	 * 
 	 * @constructor
 	 * 
-	 * @param {Table} table - The table to insert on.
+	 * @param {Table} table - The table to insert into.
 	 */
 	function Insert(table) {
 		this._table = table;
@@ -485,7 +507,7 @@ var egon = {};
 	 * Adds the 'VALUES' clause to this 'INSERT' SQL expression.
 	 * 
 	 * @param {Object} values - An object literal with the keys as the property names for the columns in the table. Value of the property in the object literal is the value to insert in the table for the column.
-	 * @returns {Insert}
+	 * @returns {Insert} This SQL expression object.
 	 */
 	Insert.prototype.values = function(values) {
 		this._values = values;
@@ -496,7 +518,7 @@ var egon = {};
 	/**
 	 * Creates a SQL expression string for the 'INSERT' statement.
 	 * 
-	 * @returns {String} A SQL expression.
+	 * @returns {String} A SQL string.
 	 */
 	Insert.prototype.compile = function() {
 		var sql = "INSERT INTO " + this._table._name + " (",
@@ -516,8 +538,91 @@ var egon = {};
 		
 		return sql;
 	};
+	
+	/**
+	 * Constructor for the 'UPDATE' SQL expression.
+	 * 
+	 * @constructor
+	 * 
+	 * @param {Table} table - The table to update.
+	 */
+	function Update(table) {
+		this._table = table;
+		this._values = {};
+		this._wheres = [];
 		
-	egon.Insert = Insert;
+		var key;
+		
+		// Pre-populate the values with every column non-autoIncrement column.
+		for (key in this._table) {
+			if (this._table[key] instanceof Column && !this._table[key].autoIncrement) {
+				this._values[key] = this._table[key].defaultValue;
+			}
+		}
+	};
+	
+	// TODO: Add SQLite expr support.
+	// TODO: Add limit support.
+	
+	/**
+	 * Adds the 'VALUES' clause to this 'UPDATE' SQL expression.
+	 * 
+	 * @param {Object} values - An object literal with the keys as the property names for the columns in the table. Value of the property in the object literal is the value to update in the table for the column.
+	 * @returns {Update} This SQL expression object.
+	 */
+	Update.prototype.values = function(values) {
+		this._values = values;
+		
+		return this;
+	};
+	
+	/**
+	 * Adds a 'WHERE' clause to the 'UPDATE' SQl expression.
+	 * 
+	 * Additional 'WHERE' clauses will be 'AND'-ed together.
+	 * 
+	 * @param {String} expr - A SQL string.
+	 * @returns {Update} This 'UPDATE' SQL expression.
+	 */
+	Update.prototype.where = function(expr) {
+		this._wheres.push(expr);
+		
+		return this;
+	};
+	
+	/**
+	 * Creates a SQL expression string for the 'INSERT' statement.
+	 * 
+	 * @returns {String} A SQL string.
+	 */
+	Update.prototype.compile = function() {
+		var sql = "UPDATE " + this._table._name + " SET ",
+			key,
+			i;
+	
+		for (key in this._values) {
+			if (this._table[key] instanceof Column) {
+				sql += this._table[key].name + " = :" + key + ", \n";
+			}
+		}
+
+		if (this._wheres.length > 0) {
+			// Remove trailing comma, space, and newline character.
+			sql = sql.slice(0, -3) + " WHERE ";
+			
+			for (i = 0; i < this._wheres.length; i += 1) {
+				sql += "(" + this._wheres[i] + ") AND ";
+			}
+			
+			// Remove trailing ')' and 'AND' and space.
+			sql = sql.slice(0, -5);	
+		}
+		else {
+			sql = sql.slice(0, -3);
+		}
+		
+		return sql;
+	};
 	
 	// May want to change this to MappedClass as a name for the constructor
 	function Class(tableName, columns) {
