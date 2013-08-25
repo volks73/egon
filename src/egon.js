@@ -52,13 +52,75 @@ var egon = {};
 	 * A mapping of known JavaScript variable types to SQLite column types.
 	 * @typedef {Object} TypeConstant
 	 */
-	egon.types = {
+	egon.TYPES = {
 		NULL: {display: 'null', dbType: 'NULL', jsType: null},
 		TEXT: {display: 'text', dbType: 'TEXT', jsType: ''},
 		INTEGER: {display: 'integer', dbType: 'INTEGER', jsType: 0},
 		BOOLEAN: {display: 'boolean', dbType: 'INTEGER', jsType: false},
 		DECIMAL: {display: 'decimal', dbType: 'REAL', jsType: 0.0},
 		DATE: {display: 'date', dbType: 'TEXT', jsType: new Date()},
+	};
+	
+	/**
+	 * The column options. These are the possible properties for the 'option' object of the Column constructor.
+	 * 
+	 * @typedef {String} OptionsConstant
+	 */
+	egon.OPTIONS = {
+		PRIMARY_KEY: 'primaryKey',
+		AUTO_INCREMENT: 'autoIncrement',
+		NOT_NULL: 'notNull',
+		UNIQUE: 'unique',
+		DEFAULT_VALUE: 'defaultValue',
+		COLLATE: 'collate',
+		FOREIGN_KEY: 'foreignKey',
+	};
+	
+	/**
+	 * The possible values for the 'collate' option.
+	 * 
+	 * @typedef {String} CollateConstant
+	 */
+	egon.COLLATE = {
+		BINARY: 'BINARY',
+		NOCASE: 'NOCASE',
+		RTRIM: 'RTRIM',	
+	};
+	
+	/**
+	 * The possible values for the 'conflict' option.
+	 * 
+	 * @typedef {String} ConflictConstant
+	 */
+	egon.CONFLICT = {
+		ROLLBACK: 'ROLLBACK',
+		ABORT: 'ABORT',
+		FAIL: 'FAIL',
+		IGNORE: 'IGNORE',
+		REPLACE: 'REPLACE',
+	};
+	
+	/**
+	 * The possible values for the 'ON DELETE' and 'ON UPDATE' clauses of a Foreign Key SQL definition.
+	 * 
+	 * @typedef {String} ActionsConstant
+	 */
+	egon.ACTIONS = {
+		SET_NULL: 'SET NULL',
+		SET_DEFAULT: 'SET DEFAULT',
+		CASCADE: 'CASCADE',
+		RESTRICT: 'RESTRICT',
+		NO_ACTION: 'NO ACTION',
+	};
+	
+	/**
+	 * The possible values for the 'DEFERRABLE' clause of a Foreign Key SQL defintion.
+	 * 
+	 * @typedef {String} DefersConstant
+	 */
+	egon.DEFERS = {
+		DEFERRED: 'INITIALLY DEFERRED',
+		IMMEDIATE: 'INITIALLY IMMEDIATE',
 	};
 	
 	/**
@@ -80,7 +142,7 @@ var egon = {};
 			if (metadata.hasOwnProperty(key)) {
 				// TODO: Change dbConn to universal interface. Right now it uses the Mozilla-specific Storage interface to 
 				// interact with a SQLite database. This should be abstracted to be used for any database in any environment.
-				stmt = dbConn.createAsyncStatement(metadata[key].toSQL());
+				stmt = dbConn.createAsyncStatement(metadata[key].compile());
 				stmt.executeAsync();
 			}
 		}
@@ -89,7 +151,7 @@ var egon = {};
 	/**
 	 * Constructor for a SQL database table.
 	 * 
-	 * Note, constraints and keys are handled at the column level.
+	 * @constructor
 	 * 
 	 * @param {String} name - The name of this table.
 	 * @param {Object} [schema] - An object literal the values of the properties should be Column objects and the keys will be added as properties to this table. 
@@ -138,6 +200,25 @@ var egon = {};
 		return columns;
 	};
 	
+	/**
+	 * Gets an array of foreign keys for this table.
+	 * 
+	 * @returns {Array}
+	 */
+	Table.prototype.foreignKeys = function() {
+		var foreignKeys = [],
+			that = this,
+			key;
+		
+		for (key in that) {
+			if (that[key] instanceof ForeignKey) {
+				foriegnKeys.push(that[key]);
+			}
+		}
+		
+		return foreignKeys;
+	};
+	
 	Table.prototype.toString = function() {
 		var str = "table: " + this._name + "\n",
 			columns = this.columns(),
@@ -154,16 +235,21 @@ var egon = {};
 	 * Creates a SQL string to create this table in a database. The 'IF NOT EXISTS' clause is
 	 * used to prevent corrupting the database or overwriting data.
 	 * 
-	 * @returns {String}
+	 * @returns {String} A SQL expression.
 	 */
 	Table.prototype.compile = function() {
 		// CREATE TABLE IF NOT EXISTS tableName (column-name type-name column-constraint, table-constraint)
 		var sql = "CREATE TABLE IF NOT EXISTS " + this._name + " (\n",
 			columns = this.columns(),
+			foreignKeys = this.foreignKeys(),
 			i;
 		
 		for (i = 0; i < columns.length; i += 1) {
 			sql += columns[i].compile() + ", \n";
+		}
+		
+		for (i = 0; i < foreignKeys.length; i += 1) {
+			sql += "CONSTRAINT " + foreignKeys[i].name + " FOREIGN KEY (" + foreignKeys[i].column.name + ") " + foreignKeys[i].compile() + ", \n";
 		}
 		
 		// Remove trailing newline character, comma, and space.
@@ -228,71 +314,30 @@ var egon = {};
 	 * The <code>foreignKey</code> option is a <code>ForeignKey</code> object.
 	 * 
 	 * @constructor
+	 * 
 	 * @param {String} name - The column name.
 	 * @param {TypeConstant} type - The column type.
-	 * @param {ColumnOptions} [options] - An object literal with keys from the {ColumnOptions} constants.
+	 * @param {OptionsConstant} [options] - An object literal with keys from the {ColumnOptions} constants.
 	 */
 	function Column(name, type, options) {
 		this.name = name;
 		this._type = type;
 		
 		// TODO: Add support for conflict-clause
-		this._primaryKey = options.primaryKey || false;
-		this._autoIncrement = options.autoIncrement || false;
-		
-		// TODO: Add conflict-clause
-		this._notNull = options.notNull || false;
+		this.primaryKey = options[egon.OPTIONS.PRIMARY_KEY] || false;
+		this.autoIncrement = options[egon.OPTIONS.AUTO_INCREMENT] || false;
 		
 		// TODO: Add support for conflict-clause
-		this._unique = options.unique || false;
+		this.notNull = options[egon.OPTIONS.NOT_NULL] || false;
+		
+		// TODO: Add support for conflict-clause
+		this.unique = options[egon.OPTIONS.UNIQUE] || false;
 		
 		// TODO: Add expression support
-		this._default = options.defaultValue || 'NULL';
-		this._collate = options.collate || null;
+		this.defaultValue = options[egon.OPTIONS.DEFAULT_VALUE] || 'NULL';
+		this.collate = options[egon.OPTIONS.COLLATE] || null;
 
-		// TODO: Add foreign key support.
-		this._foreignKey = options.foreignKey || null;
-	};
-	
-	// TODO: Redo constants. This does not work with attaching object to prototype.
-	// Maybe do egon.column.options = {}
-	// Or egon.PRIMARY_KEY = 'primaryKey';
-	// Or egon.OPTIONS.PRIMARY_KEY
-	// Or egon.COLUMN.OPTIONS.PRIMARY_KEY
-	
-	/**
-	 * The column options.
-	 * 
-	 * @typedef {String} ColumnOptions
-	 */
-	Column.prototype.options = {
-		PRIMARY_KEY: 'primaryKey',
-		AUTO_INCREMENT: 'autoIncrement',
-		NOT_NULL: 'notNull',
-		UNIQUE: 'unique',
-		DEFAULT_VALUE: 'defaultValue',
-		COLLATE: 'collate',
-		FOREIGN_KEY: 'foreignKey',
-	};
-	
-	/**
-	 * The possible values for the 'collate' option.
-	 */
-	Column.prototype.collate = {
-		BINARY: 'BINARY',
-		NOCASE: 'NOCASE',
-		RTRIM: 'RTRIM',	
-	};
-	
-	/**
-	 * The possible values for the 'conflict' option.
-	 */
-	Column.prototype.conflict = {
-		ROLLBACK: 'ROLLBACK',
-		ABORT: 'ABORT',
-		FAIL: 'FAIL',
-		IGNORE: 'IGNORE',
-		REPLACE: 'REPLACE',
+		this.foreignKey = options[egon.OPTIONS.FOREIGN_KEY] || null;
 	};
 	
 	Column.prototype.toString = function() {
@@ -302,38 +347,38 @@ var egon = {};
 	/**
 	 * Creates an SQL string to create the column for a table.
 	 * 
-	 * @returns {String}
+	 * @returns {String} A SQL expression.
 	 */
 	Column.prototype.compile = function() {
 		// TODO: Add column-constraint support.
 		var sql = this.name + " " + this._type.dbType;
 		
-		if (this._primaryKey) {
+		if (this.primaryKey) {
 			sql += " PRIMARY KEY";
 		}
 		
-		if (this._autoIncrement) {
+		if (this.autoIncrement) {
 			sql += " AUTOINCREMENT";
 		}
 		
-		if (this._notNull) {
+		if (this.notNull) {
 			sql += " NOT NULL";
 		}
 		
-		if (this._unique) {
+		if (this.unique) {
 			sql += " UNIQUE";
 		}
 		
-		if (this._default) {
-			sql += " DEFAULT " + this._default;
+		if (this.defaultValue) {
+			sql += " DEFAULT " + this.defaultValue;
 		}
 		
-		if (this._collate) {
-			sql += " COLLATE " + this._collate;
+		if (this.collate) {
+			sql += " COLLATE " + this.collate;
 		}
 		
-		if (this._foreignKey) {
-			sql += " " + this._foreignKey.toSQL();
+		if (this.foreignKey) {
+			sql += " CONSTRAINT " + this.foreignKey.name + this.foreignKey.compile();
 		}
 		
 		return sql;
@@ -344,65 +389,53 @@ var egon = {};
 	/**
 	 * Constructor for a Foreign Key.
 	 * 
-	 * @param name A <code>String</code> object. The name of the constraint.
-	 * @param parent A <code>Table</code> object. The parent or foreign table.
-	 * @param parentColumns An <code>Array</code> object. The columns in the parent, or foreign, table.
-	 * @param onDelete (Optional) A <code>String</code> object from the <code>actions</code> constants.
-	 * @param onUpdate (Optional) A <code>String</code> object from the <code>actions</code> constants. 
+	 * @constructor
+	 * 
+	 * @param {String} name - The name of the constraint.
+	 * @param {Table} parent - The parent or foreign table.
+	 * @param {Array} parentColumns - The columns in the parent, or foreign, table.
+	 * @param {String} [onDelete] - A {ForeignKeyAction} constants.
+	 * @param {String} [onUpdate] - A {ForeignKeyAction} constants. 
 	 */
 	function ForeignKey(name, parent, parentColumns, onDelete, onUpdate) {
-		this._name = name;
-		this._parent = parent;
-		this._columns = parentColumns;
-		this._onDelete = onDelete || false;
-		this._onUpdate = onUpdate || false;
+		this.name = name;
+		this.parent = parent;
+		this.columns = parentColumns;
+		this.onDelete = onDelete || false;
+		this.onUpdate = onUpdate || false;
 		
 		// TODO: Add support for 'MATCH' clause
 		// TODO: Add support for 'DEFERRABLE' clause
 	};
 	
-	ForeignKey.prototype.actions = {
-		SET_NULL: 'SET NULL',
-		SET_DEFAULT: 'SET DEFAULT',
-		CASCADE: 'CASCADE',
-		RESTRICT: 'RESTRICT',
-		NO_ACTION: 'NO ACTION',
-	};
-		
-	ForeignKey.prototype.defers = {
-		DEFERRED: 'INITIALLY DEFERRED',
-		IMMEDIATE: 'INITIALLY IMMEDIATE',
-	};
-	
 	ForeignKey.prototype.toString = function() {
-		var str = this._name + " parent: " + this._parent + "\n columns: \n",
+		var str = this.name + " parent: " + this.parent + "\n columns: \n",
 			i;
 		
-		for (i = 0; i < this._columns.length; i += 1) {
+		for (i = 0; i < this.columns.length; i += 1) {
 			str += this._columns[i] + "\n";
 		}
 		
 		return str;
 	};
 	
-	// TODO: Change to 'compile'.
-	ForeignKey.prototype.toSQL = function() {
-		var sql = "CONSTRAINT " + this._name + " REFERENCES " + this._parent._name + " (",
+	ForeignKey.prototype.compile = function() {
+		var sql = " REFERENCES " + this.parent._name + " (",
 			i;
 		
-		for (i = 0; i < this._columns.length; i += 1) {
-			sql += this._columns[i].name + ",";
+		for (i = 0; i < this.columns.length; i += 1) {
+			sql += this.columns[i].name + ",";
 		}
 		
 		// Remove trailing comma.
 		sql = sql.slice(0, -1) + ")";
 		
-		if (this._onDelete) {
-			sql += "ON DELETE " + this._onDelete;
+		if (this.onDelete) {
+			sql += "ON DELETE " + this.onDelete;
 		}
 		
-		if (this._onUpdate) {
-			sql += "ON UPDATE " + this._onUpdate;
+		if (this.onUpdate) {
+			sql += "ON UPDATE " + this.onUpdate;
 		}
 		
 		return sql;
