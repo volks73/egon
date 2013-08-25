@@ -45,3 +45,8 @@ itemsTable.unitPrice = new egon.Column('quantity', egon.TYPES.INTEGER, {notNull:
 itemsTable.dateAdded = new egon.Column('date_added', egon.TYPES.DATE, {notNull: true, defaultValue: null});
 
 egon.createAll();
+
+egon.execute(jobOrderNumbersTable.update().values({
+	alias: 'DHS Testbed Project FY13', 
+	accountNumber: '61-8906-0-2-5', 
+	description: 'The DHS TESTbed project funds for FY13'}).where(jobOrderNumberTable.id, egon.OPERATORS.EQUALS, '1'));

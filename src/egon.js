@@ -119,7 +119,7 @@ var egon = {};
 	};
 	
 	/**
-	 * The possible values for the 'DEFERRABLE' clause of a Foreign Key SQL defintion.
+	 * The possible values for the 'DEFERRABLE' clause of a Foreign Key SQL definition.
 	 * 
 	 * @typedef {String} DefersConstant
 	 * @readonly
@@ -127,6 +127,34 @@ var egon = {};
 	egon.DEFERS = {
 		DEFERRED: 'INITIALLY DEFERRED',
 		IMMEDIATE: 'INITIALLY IMMEDIATE',
+	};
+	
+	/**
+	 * The possible operators for an expression used in a 'WHERE' clause.
+	 * 
+	 * @typedef {String} OperatorsConstant.
+	 * @readonly
+	 */
+	egon.OPERATORS = {
+		EQUALS: '==',
+		NOT_EQUALS: '!=',
+		LESS_THAN: '<',
+		GREATER_THAN: '>',
+		LESS_THAN_EQUALS: '<=',
+		GREATER_THAN_EQUALS: '>=',
+		TIMES: '*',
+		DIVIDED_BY: '/',
+		MODULO: '%',
+		IS: 'IS',
+		IS_NOT: 'IS NOT',
+		IN: 'IN',
+		LIKE: 'LIKE',
+		GLOB: 'GLOB',
+		MATCH: 'MATCH',
+		REGEXP: 'REGEXP',
+		AND: 'AND',
+		OR: 'OR',
+		NOT: 'NOT',
 	};
 	
 	/**
@@ -417,7 +445,21 @@ var egon = {};
 		
 		return sql;
 	};
-
+	
+	/**
+	 * Creates a expression with the binary operator 'equals', '=='.
+	 * 
+	 * This column becomes the left operand.
+	 * 
+	 * @param {Object} value - The right operand.
+	 * @returns {Equals} A SQL expression.
+	 */
+	Column.prototype.equals = function(value) {
+		var expression = new Equals(this, value);
+		
+		return expression;
+	};
+	
 	egon.Column = Column;
 	
 	/**
@@ -481,6 +523,49 @@ var egon = {};
 	};
 		
 	egon.ForeignKey = ForeignKey;
+	
+	/**
+	 * Constructor for the '==' binary operator for a SQL expresssion.
+	 * 
+	 * @param {Object|Column} leftOperand - If the operand is a {Column} object, the 'name' property will be used.
+	 * @param {Object|Column} rightOperand - If the operand is a {Column} object, the 'name' property will be used.
+	 */
+	function Equals(leftOperand, rightOperand) {
+		this._leftOperand = leftOperand;
+		this._rightOperand = rightOperand;
+	}
+	
+	/**
+	 * Creates a SQL string ready for parameter binding and execution.
+	 * 
+	 * @returns {String} A SQL string.
+	 */
+	Equals.prototype.compile = function() {
+		// TODO: Add support for binding parameters.
+		var sql = '(';
+		
+		if (this._leftOperand instanceof Column) {
+			sql += this._leftOperand.name;
+		}
+		else {
+			sql += "'" + this._leftOperand + "'";
+		}
+		
+		sql += ' == ';
+		
+		if (this._rightOperand instanceof Column) {
+			sql += this._rightOperand.name;
+		}
+		else {
+			sql += "'" + this._rightOperand + "'";
+		}
+		
+		sql += ')';
+		
+		return sql;
+	};
+	
+	egon.Equals = Equals;
 	
 	/**
 	 * Constructor for an Insert SQL expression.
@@ -581,7 +666,7 @@ var egon = {};
 	 * 
 	 * Additional 'WHERE' clauses will be 'AND'-ed together.
 	 * 
-	 * @param {String} expr - A SQL string.
+	 * @param {Equals} expr - A SQL expression.
 	 * @returns {Update} This 'UPDATE' SQL expression.
 	 */
 	Update.prototype.where = function(expr) {
@@ -611,7 +696,7 @@ var egon = {};
 			sql = sql.slice(0, -3) + " WHERE ";
 			
 			for (i = 0; i < this._wheres.length; i += 1) {
-				sql += "(" + this._wheres[i] + ") AND ";
+				sql += this._wheres[i].compile() + " AND ";
 			}
 			
 			// Remove trailing ')' and 'AND' and space.
