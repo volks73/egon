@@ -281,17 +281,17 @@ var egon = {};
 		
 		// TODO: Move following code somewhere else not specific to the table object. This is reusable code and can be used for
 		// and SQL string.
-		stmt = dbConn.createAsyncStatement(sql);
-		params = stmt.newBindingParamsArray();
-		
-		for (key in values) {
-			bindParam = params.newBindingParams();
-			bindParam.bindByName(key, values[key]);
-			params.addParams(bindParam);
-		}
-		
-		stmt.bindParameters(params);
-		stmt.executeAsync();
+//		stmt = dbConn.createAsyncStatement(sql);
+//		params = stmt.newBindingParamsArray();
+//		
+//		for (key in values) {
+//			bindParam = params.newBindingParams();
+//			bindParam.bindByName(key, values[key]);
+//			params.addParams(bindParam);
+//		}
+//		
+//		stmt.bindParameters(params);
+//		stmt.executeAsync();
 	};
 	
 	egon.Table = Table;
@@ -447,16 +447,43 @@ var egon = {};
 	
 	function Insert(table) {
 		this._table = table;
+		this._values = {};
+		
+		// Pre-populate the values with every column non-autoIncrement column.
+		for (key in this._table) {
+			if (this._table[key] instanceof Column && !this._table[key].autoIncrement) {
+				this._values[key] = this._table[key].defaultValue;
+			}
+		}
 	};
 	
 	Insert.prototype.values = function(values) {
+		this._values = values;
+		
 		return this;
 	};
 	
 	Insert.prototype.compile = function() {
-		// TODO: Return SQL string ready for parameter binding and execution.
+		var sql = "INSERT INTO " + this._table._name + " (",
+			columnSQL = '',
+			valueSQL = '',
+			key;
+		
+		for (key in this._values) {
+			if (this._table[key] instanceof Column) {
+				columnSQL += this._table[key].name + ", ";
+				valueSQL += ":" + key + ", ";
+			}
+		}
+
+		// Remove trailing comma and space.
+		sql += columnSQL.slice(0, -2) + ") VALUES (" + valueSQL.slice(0, -2) + ")";
+		
+		return sql;
 	};
 		
+	egon.Insert = Insert;
+	
 	// May want to change this to MappedClass as a name for the constructor
 	function Class(tableName, columns) {
 		function Class() {
