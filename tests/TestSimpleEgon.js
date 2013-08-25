@@ -46,10 +46,10 @@ itemsTable.unitPrice = new egon.Column('unit_price', egon.types.DECIMAL, {notNul
 itemsTable.unitPrice = new egon.Column('quantity', egon.types.INTEGER, {notNull: true, defaultValue: null});
 itemsTable.dateAdded = new egon.Column('date_added', egon.types.DATE, {notNull: true, defaultValue: null});
 
-console.log(companiesTable.toSQL());
-console.log(jobOrderNumbersTable.toSQL());
-console.log(hazmatCodesTable.toSQL());
-console.log(purchaseOrdersTable.toSQL());
-console.log(itemsTable.toSQL());
+console.log(companiesTable.compile());
+console.log(jobOrderNumbersTable.compile());
+console.log(hazmatCodesTable.compile());
+console.log(purchaseOrdersTable.compile());
+console.log(itemsTable.compile());
 
 jobOrderNumbersTable.insert({alias: 'test1', accountNumber: '11111111', description: 'test description 1'})

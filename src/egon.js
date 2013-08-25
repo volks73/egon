@@ -35,15 +35,23 @@
  * ***** END LICENSE BLOCK ***** */
 var EXPORTED_SYMBOLS = ["egon"];
 
+/**
+ * @namespace
+ */
 var egon = {};
 
 (function() {
-	var dbConn, metadata = {};
+	var dbConn, 
+		metadata = {};
 
 	// TODO: Add functions for formatting and returning values appropriate for interaction with the database.
 	// SQLite3 supported types: NULL, INTEGER, REAL, TEXT, and BLOB. Boolean values are handled as integers 0 = false, 1 = true
 	// Date and Time are handled as either TEXT using the ISO8601 string: YYYY-MM-DD HH:MM:SS.SSS, REAL as Julian day numbers,
 	// and INTEGERs as Unix Time, the number of seconds since 1970-01-01 00:00:00 UTC. See column affinity documentation with SQLite3.
+	/**
+	 * A mapping of known JavaScript variable types to SQLite column types.
+	 * @typedef {Object} TypeConstant
+	 */
 	egon.types = {
 		NULL: {display: 'null', dbType: 'NULL', jsType: null},
 		TEXT: {display: 'text', dbType: 'TEXT', jsType: ''},
@@ -51,23 +59,6 @@ var egon = {};
 		BOOLEAN: {display: 'boolean', dbType: 'INTEGER', jsType: false},
 		DECIMAL: {display: 'decimal', dbType: 'REAL', jsType: 0.0},
 		DATE: {display: 'date', dbType: 'TEXT', jsType: new Date()},
-	};
-	
-	/**
-	 * Converts the metadata, database tables, into a string.
-	 */
-	// TODO: Change to a more universal function where keywords are passed to the function and string is assembled based on keywords.
-	// For example, passing 'metadata' as a keyword, would create a string based on the metadata.
-	egon.toString = function() {
-		var key, str = "";
-		
-		for (key in metadata) {
-			if (metadata.hasOwnProperty(key)) {
-				str += metadata[key] + "\n";
-			}
-		}
-		
-		return str;
 	};
 	
 	/**
@@ -82,7 +73,8 @@ var egon = {};
 	 * tables will not be deleted or overwritten if they already exist.
 	 */
 	egon.createAll = function() {
-		var key, stmt;
+		var key, 
+			stmt;
 		
 		for (key in metadata) {
 			if (metadata.hasOwnProperty(key)) {
@@ -99,8 +91,8 @@ var egon = {};
 	 * 
 	 * Note, constraints and keys are handled at the column level.
 	 * 
-	 * @param name The name of this table.
-	 * @param schema The columns for this table.
+	 * @param {String} name - The name of this table.
+	 * @param {Object} [schema] - An object literal the values of the properties should be Column objects and the keys will be added as properties to this table. 
 	 */
 	function Table(name, schema) {
 		var that = this,
@@ -109,7 +101,7 @@ var egon = {};
 
 		this._name = name;
 		
-		if (typeof columns !== 'undefined') {
+		if (typeof schema !== 'undefined') {
 			keys = Object.keys(schema);
 			
 			for (i = 0; i < keys.length; i += 1) {
@@ -127,15 +119,32 @@ var egon = {};
 		metadata[this._name] = this;
 	};
 	
-	Table.prototype.toString = function() {
-		var str = "table: " + this._name + "\n", 
-			that = this,
+	/**
+	 * Gets an array of the columns for this table.
+	 * 
+	 * @returns {Array}
+	 */
+	Table.prototype.columns = function() {
+		var columns = [], 
+			that = this, 
 			key;
 		
 		for (key in that) {
 			if (that[key] instanceof Column) {
-				str += "\t" + that[key] + "\n";
+				columns.push(that[key]);
 			}
+		}
+		
+		return columns;
+	};
+	
+	Table.prototype.toString = function() {
+		var str = "table: " + this._name + "\n",
+			columns = this.columns(),
+			i;
+			 
+		for (i = 0; i < columns.length; i += 1) {
+			str += "\t" + columns[i] + "\n";
 		}
 		
 		return str;
@@ -147,16 +156,14 @@ var egon = {};
 	 * 
 	 * @returns {String}
 	 */
-	Table.prototype.toSQL = function() {
+	Table.prototype.compile = function() {
 		// CREATE TABLE IF NOT EXISTS tableName (column-name type-name column-constraint, table-constraint)
 		var sql = "CREATE TABLE IF NOT EXISTS " + this._name + " (\n",
-			that = this,
-			key;
+			columns = this.columns(),
+			i;
 		
-		for (key in that) {
-			if (that[key] instanceof Column) {
-				sql += that[key].toSQL() + ", \n";
-			}
+		for (i = 0; i < columns.length; i += 1) {
+			sql += columns[i].compile() + ", \n";
 		}
 		
 		// Remove trailing newline character, comma, and space.
@@ -165,6 +172,7 @@ var egon = {};
 		return sql;
 	};
 
+	// TODO: Replace with SQL expression language-based creation.
 	Table.prototype.insert = function(values) {
 		var sql = "INSERT INTO " + this._name + " (",
 			that = this,
@@ -185,6 +193,8 @@ var egon = {};
 		// Remove trailing comma and space.
 		sql += columnSQL.slice(0, -2) + ") VALUES (" + valueSQL.slice(0, -2) + ")";
 		
+		// TODO: Move following code somewhere else not specific to the table object. This is reusable code and can be used for
+		// and SQL string.
 		stmt = dbConn.createAsyncStatement(sql);
 		params = stmt.newBindingParamsArray();
 		
@@ -217,9 +227,10 @@ var egon = {};
 	 * The <code>collate</code> option is a string from the <code>Column.collate</code> constants.
 	 * The <code>foreignKey</code> option is a <code>ForeignKey</code> object.
 	 * 
-	 * @param name The column name.
-	 * @param type The column type.
-	 * @param options (Optional) An object with any or all of the following properties: <code>primaryKey</code>, <code>autoIncrement</code>, <code>notNull</code>, <code>unique</code>, <code>defaultValue</code>, <code>collate</code>, and/or <code>foreignKey</code>.
+	 * @constructor
+	 * @param {String} name - The column name.
+	 * @param {TypeConstant} type - The column type.
+	 * @param {ColumnOptions} [options] - An object literal with keys from the {ColumnOptions} constants.
 	 */
 	function Column(name, type, options) {
 		this.name = name;
@@ -241,6 +252,27 @@ var egon = {};
 
 		// TODO: Add foreign key support.
 		this._foreignKey = options.foreignKey || null;
+	};
+	
+	// TODO: Redo constants. This does not work with attaching object to prototype.
+	// Maybe do egon.column.options = {}
+	// Or egon.PRIMARY_KEY = 'primaryKey';
+	// Or egon.OPTIONS.PRIMARY_KEY
+	// Or egon.COLUMN.OPTIONS.PRIMARY_KEY
+	
+	/**
+	 * The column options.
+	 * 
+	 * @typedef {String} ColumnOptions
+	 */
+	Column.prototype.options = {
+		PRIMARY_KEY: 'primaryKey',
+		AUTO_INCREMENT: 'autoIncrement',
+		NOT_NULL: 'notNull',
+		UNIQUE: 'unique',
+		DEFAULT_VALUE: 'defaultValue',
+		COLLATE: 'collate',
+		FOREIGN_KEY: 'foreignKey',
 	};
 	
 	/**
@@ -272,7 +304,7 @@ var egon = {};
 	 * 
 	 * @returns {String}
 	 */
-	Column.prototype.toSQL = function() {
+	Column.prototype.compile = function() {
 		// TODO: Add column-constraint support.
 		var sql = this.name + " " + this._type.dbType;
 		
@@ -353,6 +385,7 @@ var egon = {};
 		return str;
 	};
 	
+	// TODO: Change to 'compile'.
 	ForeignKey.prototype.toSQL = function() {
 		var sql = "CONSTRAINT " + this._name + " REFERENCES " + this._parent._name + " (",
 			i;
@@ -374,9 +407,23 @@ var egon = {};
 		
 		return sql;
 	};
-	
+		
 	egon.ForeignKey = ForeignKey;
 	
+	// TODO: Create SQL Expression super object for Insert, Select, Update, and Delete.
+	
+	function Insert(table) {
+		this._table = table;
+	};
+	
+	Insert.prototype.values = function(values) {
+		return this;
+	};
+	
+	Insert.prototype.compile = function() {
+		// TODO: Return SQL string ready for parameter binding and execution.
+	};
+		
 	// May want to change this to MappedClass as a name for the constructor
 	function Class(tableName, columns) {
 		function Class() {
