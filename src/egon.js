@@ -149,6 +149,34 @@ var egon = {};
 	};
 	
 	/**
+	 * Executes a SQL expression. Calls the 'compile' function of the expression,
+	 * binds the parameters, and asynchronously executes.
+	 * 
+	 * @param {Insert} expression - A SQL expression.
+	 * @param {Object} [callback] - An object implementing the 'mozIStorageStatementCallback' interface.
+	 */
+	// TODO: Update documentation with description of callback.
+	egon.execute = function(expression, callback) {
+		var stmt,
+			params,
+			key,
+			bindParam;
+		
+		stmt = dbConn.createAsyncStatement(expression.compile());
+		params = stmt.newBindingParamsArray();
+		bindParam = params.newBindingParams();
+		
+		for (key in expression._values) {
+			bindParam.bindByName(key, expression._values[key]);
+		}
+		
+		params.addParams(bindParam);
+		stmt.bindParameters(params);
+		
+		stmt.executeAsync(callback);		
+	};
+	
+	/**
 	 * Constructor for a SQL database table.
 	 * 
 	 * @constructor
@@ -258,40 +286,15 @@ var egon = {};
 		return sql;
 	};
 
-	// TODO: Replace with SQL expression language-based creation.
-	Table.prototype.insert = function(values) {
-		var sql = "INSERT INTO " + this._name + " (",
-			that = this,
-			columnSQL = '',
-			valueSQL = '',
-			key,
-			stmt,
-			params,
-			bindParam;
-			
-		for (key in values) {
-			if (that[key] instanceof Column) {
-				columnSQL += that[key].name + ", ";
-				valueSQL += ":" + key + ", ";
-			}
-		}
-	
-		// Remove trailing comma and space.
-		sql += columnSQL.slice(0, -2) + ") VALUES (" + valueSQL.slice(0, -2) + ")";
+	/**
+	 * Creates an {Insert} object to insert values into this table.
+	 * 
+	 * @returns {Insert} An Insert SQL expression object.
+	 */
+	Table.prototype.insert = function() {
+		var expression = new Insert(this);
 		
-		// TODO: Move following code somewhere else not specific to the table object. This is reusable code and can be used for
-		// and SQL string.
-//		stmt = dbConn.createAsyncStatement(sql);
-//		params = stmt.newBindingParamsArray();
-//		
-//		for (key in values) {
-//			bindParam = params.newBindingParams();
-//			bindParam.bindByName(key, values[key]);
-//			params.addParams(bindParam);
-//		}
-//		
-//		stmt.bindParameters(params);
-//		stmt.executeAsync();
+		return expression;
 	};
 	
 	egon.Table = Table;
@@ -324,20 +327,32 @@ var egon = {};
 		this._type = type;
 		
 		// TODO: Add support for conflict-clause
-		this.primaryKey = options[egon.OPTIONS.PRIMARY_KEY] || false;
-		this.autoIncrement = options[egon.OPTIONS.AUTO_INCREMENT] || false;
 		
-		// TODO: Add support for conflict-clause
-		this.notNull = options[egon.OPTIONS.NOT_NULL] || false;
-		
-		// TODO: Add support for conflict-clause
-		this.unique = options[egon.OPTIONS.UNIQUE] || false;
-		
-		// TODO: Add expression support
-		this.defaultValue = options[egon.OPTIONS.DEFAULT_VALUE] || 'NULL';
-		this.collate = options[egon.OPTIONS.COLLATE] || null;
+		if (options) {
+			this.primaryKey = options[egon.OPTIONS.PRIMARY_KEY] || false;
+			this.autoIncrement = options[egon.OPTIONS.AUTO_INCREMENT] || false;
+			
+			// TODO: Add support for conflict-clause
+			this.notNull = options[egon.OPTIONS.NOT_NULL] || false;
+			
+			// TODO: Add support for conflict-clause
+			this.unique = options[egon.OPTIONS.UNIQUE] || false;
+			
+			// TODO: Add expression support
+			this.defaultValue = options[egon.OPTIONS.DEFAULT_VALUE] || 'NULL';
+			this.collate = options[egon.OPTIONS.COLLATE] || null;
 
-		this.foreignKey = options[egon.OPTIONS.FOREIGN_KEY] || null;
+			this.foreignKey = options[egon.OPTIONS.FOREIGN_KEY] || null;	
+		}
+		else {
+			this.primaryKey = false;
+			this.autoIncrement = false;
+			this.notNull = false;
+			this.unique = false;
+			this.defaultValue = 'NULL';
+			this.collate = null;
+			this.foreignKey = null;
+		}
 	};
 	
 	Column.prototype.toString = function() {
@@ -445,9 +460,18 @@ var egon = {};
 	
 	// TODO: Create SQL Expression super object for Insert, Select, Update, and Delete.
 	
+	/**
+	 * Constructor for an Insert SQL expression.
+	 * 
+	 * @constructor
+	 * 
+	 * @param {Table} table - The table to insert on.
+	 */
 	function Insert(table) {
 		this._table = table;
 		this._values = {};
+		
+		var key;
 		
 		// Pre-populate the values with every column non-autoIncrement column.
 		for (key in this._table) {
@@ -457,12 +481,23 @@ var egon = {};
 		}
 	};
 	
+	/**
+	 * Adds the 'VALUES' clause to this 'INSERT' SQL expression.
+	 * 
+	 * @param {Object} values - An object literal with the keys as the property names for the columns in the table. Value of the property in the object literal is the value to insert in the table for the column.
+	 * @returns {Insert}
+	 */
 	Insert.prototype.values = function(values) {
 		this._values = values;
 		
 		return this;
 	};
 	
+	/**
+	 * Creates a SQL expression string for the 'INSERT' statement.
+	 * 
+	 * @returns {String} A SQL expression.
+	 */
 	Insert.prototype.compile = function() {
 		var sql = "INSERT INTO " + this._table._name + " (",
 			columnSQL = '',

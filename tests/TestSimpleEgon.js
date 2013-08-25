@@ -52,5 +52,5 @@ console.log(hazmatCodesTable.compile());
 console.log(purchaseOrdersTable.compile());
 console.log(itemsTable.compile());
 
-var insertExpression = new egon.Insert(jobOrderNumbersTable);
-console.log(insertExpression.compile());
+console.log(jobOrderNumbersTable.insert().compile());
+console.log(jobOrderNumbersTable.insert().values({alias: 'test job order number', accountNumber: '11-1111-1-1-1', description: 'Test description'}).compile());

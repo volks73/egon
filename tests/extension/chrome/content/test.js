@@ -18,12 +18,12 @@ companiesTable.dateAdded = new egon.Column('date_added', egon.TYPES.DATE, {notNu
 companiesTable.dateRemoved = new egon.Column('date_removed', egon.TYPES.DATE, {notNull: true, defaultValue: null});
 
 var jobOrderNumbersTable = new egon.Table('job_order_numbers');
-jobOrderNumbersTable.id = new egon.Column('job_order_numbers_id', egon.TYPES.INTEGER, {primaryKey: true, notNull: true, defaultValue: null, autoIncrement: true});
-jobOrderNumbersTable.alias = new egon.Column('alias', egon.TYPES.TEXT, {notNull: true, defaultValue: null});
-jobOrderNumbersTable.accountNumber = new egon.Column('account_number', egon.TYPES.TEXT, {notNull: true, defaultValue: null});
-jobOrderNumbersTable.description = new egon.Column('description', egon.TYPES.TEXT, {notNull: true, defaultValue: null});
-jobOrderNumbersTable.dateAdded = new egon.Column('date_added', egon.TYPES.DATE, {notNull: true, defaultValue: null});
-jobOrderNumbersTable.dateRemoved = new egon.Column('date_removed', egon.TYPES.DATE, {notNull: true, defaultValue: null});
+jobOrderNumbersTable.id = new egon.Column('job_order_numbers_id', egon.TYPES.INTEGER, {primaryKey: true, autoIncrement: true});
+jobOrderNumbersTable.alias = new egon.Column('alias', egon.TYPES.TEXT);
+jobOrderNumbersTable.accountNumber = new egon.Column('account_number', egon.TYPES.TEXT);
+jobOrderNumbersTable.description = new egon.Column('description', egon.TYPES.TEXT);
+jobOrderNumbersTable.dateAdded = new egon.Column('date_added', egon.TYPES.DATE);
+jobOrderNumbersTable.dateRemoved = new egon.Column('date_removed', egon.TYPES.DATE);
 
 var hazmatCodesTable = new egon.Table('hazmat_codes');
 hazmatCodesTable.id = new egon.Column('hazmat_codes_id', egon.TYPES.INTEGER, {primaryKey: true, notNull: true, defaultValue: null, autoIncrement: true});
@@ -56,3 +56,10 @@ itemsTable.unitPrice = new egon.Column('quantity', egon.TYPES.INTEGER, {notNull:
 itemsTable.dateAdded = new egon.Column('date_added', egon.TYPES.DATE, {notNull: true, defaultValue: null});
 
 egon.createAll();
+
+var insertExpr = jobOrderNumbersTable.insert().values({
+	alias: 'test job order number', 
+	accountNumber: '11-1111-1-1-1', 
+	description: 'Test description'});
+
+egon.execute(insertExpr);
