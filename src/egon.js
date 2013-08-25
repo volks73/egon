@@ -192,24 +192,32 @@ var egon = {};
 	 * @param {mozIStorageStatementCallback} [callback] - A callback.
 	 */
 	// TODO: Update documentation with description of callback.
-	egon.execute = function(expression, callback) {
-		var stmt,
-			params,
+	egon.execute = function(expr, callback) {
+		var exprParams = expr.parameters();
+			stmt,
+			stmtParams,
 			key,
 			bindParam;
 		
 		stmt = dbConn.createAsyncStatement(expression.compile());
-		params = stmt.newBindingParamsArray();
-		bindParam = params.newBindingParams();
+		stmtParams = stmt.newBindingParamsArray();
+		bindParam = stmtParams.newBindingParams();
 		
-		for (key in expression._values) {
-			bindParam.bindByName(key, expression._values[key]);
+		for (key in exprParams) {
+			bindParam.bindByName(key, exprParams[key]);
 		}
 		
-		params.addParams(bindParam);
-		stmt.bindParameters(params);
+		stmtParams.addParams(bindParam);
+		stmt.bindParameters(stmtParams);
 		
 		stmt.executeAsync(callback);		
+	};
+	
+	/**
+	 * Creates an {Expr} object.
+	 */
+	egon.expr = function() {
+		return new Expr();
 	};
 	
 	/**
@@ -328,9 +336,9 @@ var egon = {};
 	 * @returns {Insert} An Insert SQL expression object.
 	 */
 	Table.prototype.insert = function() {
-		var expression = new Insert(this);
+		var expr = new Insert(this);
 		
-		return expression;
+		return expr;
 	};
 	
 	/**
@@ -339,9 +347,9 @@ var egon = {};
 	 * @returns {Update} An Update SQL expression object.
 	 */
 	Table.prototype.update = function() {
-		var expression = new Update(this);
+		var expr = new Update(this);
 		
-		return expression;
+		return expr;
 	};
 	
 	egon.Table = Table;
@@ -446,20 +454,6 @@ var egon = {};
 		return sql;
 	};
 	
-	/**
-	 * Creates a expression with the binary operator 'equals', '=='.
-	 * 
-	 * This column becomes the left operand.
-	 * 
-	 * @param {Object} value - The right operand.
-	 * @returns {Equals} A SQL expression.
-	 */
-	Column.prototype.equals = function(value) {
-		var expression = new Equals(this, value);
-		
-		return expression;
-	};
-	
 	egon.Column = Column;
 	
 	/**
@@ -524,48 +518,91 @@ var egon = {};
 		
 	egon.ForeignKey = ForeignKey;
 	
-	/**
-	 * Constructor for the '==' binary operator for a SQL expresssion.
-	 * 
-	 * @param {Object|Column} leftOperand - If the operand is a {Column} object, the 'name' property will be used.
-	 * @param {Object|Column} rightOperand - If the operand is a {Column} object, the 'name' property will be used.
-	 */
-	function Equals(leftOperand, rightOperand) {
-		this._leftOperand = leftOperand;
-		this._rightOperand = rightOperand;
-	}
+	function Expr() {
+		this._tree = [];
+		this._params = [];
+	};
 	
-	/**
-	 * Creates a SQL string ready for parameter binding and execution.
-	 * 
-	 * @returns {String} A SQL string.
-	 */
-	Equals.prototype.compile = function() {
-		// TODO: Add support for binding parameters.
-		var sql = '(';
+	Expr.prototype.begin = function() {
+		this._tree.push('(');
 		
-		if (this._leftOperand instanceof Column) {
-			sql += this._leftOperand.name;
-		}
-		else {
-			sql += "'" + this._leftOperand + "'";
+		return this;
+	};
+	
+	Expr.prototype.end = function() {
+		this._tree.push(')');
+		
+		return this;
+	};
+	
+	Expr.prototype.literal = function(literalValue) {
+		this._tree.push("'" + literalValue + "'");
+		
+		return this;
+	};
+	
+	Expr.prototype.equals = function() {
+		this._tree.push(' ' + egon.OPERATORS.EQUALS + ' ');
+		
+		return this;
+	};
+	
+	Expr.prototype.and = function() {
+		this._tree.push(' ' + egon.OPERATORS.AND + ' ');
+		
+		return this;
+	};
+	
+	Expr.prototype.or = function() {
+		this._tree.push(' ' + egon.OPERATOR.OR + ' ');
+		
+		return this;
+	};
+	
+	Expr.prototype.not = function() {
+		this._tree.push(egon.OPERATORS.NOT);
+		
+		return this;
+	};
+	
+	Expr.prototype.column = function(column) {
+		this._tree.push(column.name);
+		
+		return this;
+	};
+	
+	Expr.prototype.param = function(param) {
+		this._params.push(param);
+		
+		for (key in param) {
+			this._tree.push(":" + key);	
 		}
 		
-		sql += ' == ';
+		return this;
+	};
+	
+	// TODO: Finish designing and implementing a system for using bind parameters in expressions.
+	Expr.prototype.parameters = function() {
+		var exprParams {}; 
+			i;
 		
-		if (this._rightOperand instanceof Column) {
-			sql += this._rightOperand.name;
-		}
-		else {
-			sql += "'" + this._rightOperand + "'";
+		for (i = 0; i < this._params.length; i += 1) {
+			this._params[i];
 		}
 		
-		sql += ')';
+		return exprParams;
+	};
+	
+	Expr.prototype.compile = function() {
+		var sql = '',
+			i;
+		
+		for (i = 0; i < this._tree.length; i += 1) {
+			sql += this._tree[i];
+		}
 		
 		return sql;
 	};
-	
-	egon.Equals = Equals;
 	
 	/**
 	 * Constructor for an Insert SQL expression.
@@ -598,6 +635,15 @@ var egon = {};
 		this._values = values;
 		
 		return this;
+	};
+	
+	/**
+	 * Gets the parameters for binding to a statement for execution.
+	 * 
+	 * @returns {Object}
+	 */
+	Insert.prototype.parameters = function() {
+		return this._values;
 	};
 	
 	/**
@@ -666,13 +712,22 @@ var egon = {};
 	 * 
 	 * Additional 'WHERE' clauses will be 'AND'-ed together.
 	 * 
-	 * @param {Equals} expr - A SQL expression.
+	 * @param {Expr} expr - A SQL expression.
 	 * @returns {Update} This 'UPDATE' SQL expression.
 	 */
 	Update.prototype.where = function(expr) {
 		this._wheres.push(expr);
 		
 		return this;
+	};
+	
+	/**
+	 * Gets the parameters for binding to a statement.
+	 * 
+	 * @returns {Object}
+	 */
+	Update.prototype.parameters = function() {
+		return this._values;
 	};
 	
 	/**
