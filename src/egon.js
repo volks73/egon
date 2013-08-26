@@ -206,6 +206,13 @@ var egon = {};
 		bindParam = stmtParams.newBindingParams();
 		
 		for (key in exprParams) {
+			// TODO: Add support for indexed, or numbered, bind parameters.
+//			if (key.charAt(0) == "?") {
+//				dump((key.slice(1) - 1) + "\n");
+//				bindParam.bindByIndex(key.slice(1) - 1, exprParams[key]);
+//			} else {
+//				bindParam.bindByName(key, exprParams[key]);
+//			}
 			bindParam.bindByName(key, exprParams[key]);
 		}
 		
@@ -682,8 +689,12 @@ var egon = {};
 	 * @returns {Expr} This expression.
 	 */
 	Expr.prototype.value = function(literal) {
-		this._tree.push(literal);
+		var paramCount = Object.keys(this._params).length + 1,
+			key = "?" + paramCount;
 		
+		this._tree.push(key);
+		this._params[paramCount] = literal;
+				
 		return this;
 	};
 	
@@ -873,7 +884,7 @@ var egon = {};
 	/**
 	 * Adds the 'VALUES' clause to this 'INSERT' SQL statement.
 	 * 
-	 * Named bind-parameters will be created if the 'values' parameter is an {Array}; otherwise, the keys in the {Object} literal will be used as the named bind-parameters if the 'values' parameter is an {Object} literal. 
+	 * The keys in the {Object} literal will be used as the named bind-parameters. 
 	 * 
 	 * @param {Object} values - An object literal with the keys as the property names for the columns in the table. Value of the property in the object literal is the value to insert in the table for the column.
 	 * @returns {Insert} This SQL statement.
@@ -951,6 +962,8 @@ var egon = {};
 	/**
 	 * Adds the 'SET' and column clauses to this 'UPDATE' SQL statement.
 	 * 
+	 * The column names will be used as the named bind parameters.
+	 * 
 	 * @param {Object} columns - An object literal with the keys as the column names and the values as the values to update. 
 	 * @returns {Update} This SQL statement.
 	 */
@@ -1000,11 +1013,24 @@ var egon = {};
 	 */
 	Update.prototype.compile = function() {
 		var sql = '',
-		i;
+			i;
+		
+		var append = function(parameters) {
+			var keys,
+				key,
+				i;
+			
+			keys = Object.keys(parameters);
+			for (i = 0; i < keys.length; i += 1) {
+				key = keys[i];
+				this._params[key] = parameters[key];
+			}
+		};
 	
 		for (i = 0; i < this._tree.length; i += 1) {
 			if (this._tree[i] instanceof Expr) {
 				sql += this._tree[i].compile();
+				append(this._tree[i].parameters());
 			} else {
 				sql += this._tree[i];
 			}
