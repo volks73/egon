@@ -136,7 +136,7 @@ var egon = {};
 	 * @readonly
 	 */
 	egon.OPERATORS = {
-		EQUALS: '==',
+		EQUALS: '=',
 		NOT_EQUALS: '!=',
 		LESS_THAN: '<',
 		GREATER_THAN: '>',
@@ -192,14 +192,16 @@ var egon = {};
 	 * @param {mozIStorageStatementCallback} [callback] - A callback.
 	 */
 	// TODO: Update documentation with description of callback.
-	egon.execute = function(expr, callback) {
-		var exprParams = expr.parameters();
+	egon.execute = function(egonStmt, callback) {
+		var exprParams = egonStmt.parameters(),
 			stmt,
 			stmtParams,
 			key,
 			bindParam;
 		
-		stmt = dbConn.createAsyncStatement(expression.compile());
+		dump(egonStmt.compile() + "\n");
+			
+		stmt = dbConn.createAsyncStatement(egonStmt.compile());
 		stmtParams = stmt.newBindingParamsArray();
 		bindParam = stmtParams.newBindingParams();
 		
@@ -680,7 +682,7 @@ var egon = {};
 	 * @returns {Expr} This expression.
 	 */
 	Expr.prototype.value = function(literal) {
-		this._tree.push("'" + literal + "'");
+		this._tree.push(literal);
 		
 		return this;
 	};
@@ -815,6 +817,15 @@ var egon = {};
 	};
 	
 	/**
+	 * Gets the parameters for this SQL expression.
+	 * 
+	 * @returns {Object} An object literal with the keys as the bind parameter key with the values to be substituted in the SQL statement.
+	 */
+	Expr.prototype.parameters = function() {
+		return this._params;
+	};
+	
+	/**
 	 * Constructor for an Insert SQL statement.
 	 * 
 	 * @constructor
@@ -864,47 +875,30 @@ var egon = {};
 	 * 
 	 * Named bind-parameters will be created if the 'values' parameter is an {Array}; otherwise, the keys in the {Object} literal will be used as the named bind-parameters if the 'values' parameter is an {Object} literal. 
 	 * 
-	 * @param {Object|Array} values - An object literal with the keys as the property names for the columns in the table. Value of the property in the object literal is the value to insert in the table for the column.
+	 * @param {Object} values - An object literal with the keys as the property names for the columns in the table. Value of the property in the object literal is the value to insert in the table for the column.
 	 * @returns {Insert} This SQL statement.
 	 */
 	Insert.prototype.values = function(values) {
-		var paramCount = Object.keys(this._params).length,
-			key,
+		var key,
 			keys,
 			count,
 			i;
 		
 		this._tree.push(" VALUES (");
 		
-		if (values instanceof Array) {
-			count = values.length - 1;
+		keys = Object.keys(values);
+		count = keys.length - 1;
 			
-			for (i = 0; i < count; i += 1) {
-				key = "value" + (paramCount + i);
-				this._tree.push(":" + key);
-				this._tree.push(", ");
-				this._params[key] = values[i];
-			}
-			
-			key = "value" + i;
-			this._tree.push(":" + key);
-			this._params[key] = values[i];
-		} else {
-			keys = Object.keys(values);
-			count = keys.length - 1;
-			
-			for (i = 0; i < count; i += 1) {
-				key = keys[i];
-				this._tree.push(":" + key);
-				this._tree.push(", ");
-				this._params[key] = values[key];
-			}
-			
+		for (i = 0; i < count; i += 1) {
 			key = keys[i];
 			this._tree.push(":" + key);
+			this._tree.push(", ");
 			this._params[key] = values[key];
 		}
-
+			
+		key = keys[i];
+		this._tree.push(":" + key);
+		this._params[key] = values[key];
 		this._tree.push(")");
 		
 		return this;
@@ -931,6 +925,15 @@ var egon = {};
 	};
 	
 	/**
+	 * Gets the parameters for this 'INSERT' SQL statement.
+	 * 
+	 * @returns {Object} An object literal with the keys as the bind parameter key with the values to be substituted in the SQL statement.
+	 */
+	Insert.prototype.parameters = function() {
+		return this._params;
+	};
+	
+	/**
 	 * Constructor for the 'UPDATE' SQL statement.
 	 * 
 	 * @constructor
@@ -953,11 +956,9 @@ var egon = {};
 	 */
 	Update.prototype.set = function(columns) {
 		var keys = Object.keys(columns),
-			paramCount = Object.keys(this._params).length,
 			count = keys.length - 1,
 			columnName,
-			i,
-			param;
+			i;
 		
 		this._tree.push(" SET ");
 		
@@ -965,18 +966,16 @@ var egon = {};
 			columnName = keys[i];
 			this._tree.push(columnName);
 			this._tree.push(" = ");
-			param = "value" + (paramCount + i);
-			this._tree.push(":" + param);
+			this._tree.push(":" + columnName);
 			this._tree.push(", ");
-			this._params[param] = columns[columnName];
+			this._params[columnName] = columns[columnName];
 		}
 		
 		columnName = keys[i];
 		this._tree.push(columnName);
 		this._tree.push(" = ");
-		param = ":value" + (paramCount + i);
-		this._tree.push(param);
-		this._params[param] = columns[columnName];
+		this._tree.push(":" + columnName);
+		this._params[columnName] = columns[columnName];
 		
 		return this;
 	};
@@ -1012,6 +1011,15 @@ var egon = {};
 		}
 		
 		return sql;
+	};
+	
+	/**
+	 * Gets the parameters for this 'UPDATE' SQL statement.
+	 * 
+	 * @returns {Object} An object literal with the keys as the bind parameter key with the values to be substituted in the SQL statement.
+	 */
+	Update.prototype.parameters = function() {
+		return this._params;
 	};
 	
 	// May want to change this to MappedClass as a name for the constructor
