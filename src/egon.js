@@ -178,7 +178,7 @@ var egon = {};
 			if (metadata.hasOwnProperty(key)) {
 				// TODO: Change dbConn to universal interface. Right now it uses the Mozilla-specific Storage interface to 
 				// interact with a SQLite database. This should be abstracted to be used for any database in any environment.
-				stmt = dbConn.createAsyncStatement(metadata[key].compile());
+				stmt = dbConn.createAsyncStatement(metadata[key].sql());
 				stmt.executeAsync();
 			}
 		}
@@ -254,6 +254,15 @@ var egon = {};
 	};
 	
 	/**
+	 * Gets the name of this table.
+	 * 
+	 * @returns {String} The table name.
+	 */
+	Table.prototype.name = function() {
+		return this._name;
+	};
+	
+	/**
 	 * Gets an array of the columns for this table.
 	 * 
 	 * @returns {Array} - An array of table columns.
@@ -309,19 +318,18 @@ var egon = {};
 	 * 
 	 * @returns {String} A SQL expression.
 	 */
-	Table.prototype.compile = function() {
-		// CREATE TABLE IF NOT EXISTS tableName (column-name type-name column-constraint, table-constraint)
+	Table.prototype.sql = function() {
 		var sql = "CREATE TABLE IF NOT EXISTS " + this._name + " (\n",
 			columns = this.columns(),
 			foreignKeys = this.foreignKeys(),
 			i;
 		
 		for (i = 0; i < columns.length; i += 1) {
-			sql += columns[i].compile() + ", \n";
+			sql += columns[i].sql() + ", \n";
 		}
 		
 		for (i = 0; i < foreignKeys.length; i += 1) {
-			sql += "CONSTRAINT " + foreignKeys[i].name + " FOREIGN KEY (" + foreignKeys[i].column.name + ") " + foreignKeys[i].compile() + ", \n";
+			sql += "CONSTRAINT " + foreignKeys[i].name + " FOREIGN KEY (" + foreignKeys[i].column.name + ") " + foreignKeys[i].sql() + ", \n";
 		}
 		
 		// Remove trailing newline character, comma, and space.
@@ -337,26 +345,41 @@ var egon = {};
 	 * @returns {Insert} An 'INSERT' SQL statement.
 	 */
 	Table.prototype.insert = function(values) {
-		var insert = new Insert();
+		var insert = new Insert(),
+			columnNames = [],
+			that = this,
+			columnKey;
 		
-		// TODO: Finish converting 'values' to column names and the 'VALUES' clause.
-		// TODO: Finsih converting this function to using the new 'INSERT' statement.
-		insert.into(this._name).columns().values();
+		for (columnKey in values) {
+			columnNames.push(that[columnKey].name);
+		}
+		
+		insert.into(this._name).columns(columnNames).values(values);
+		
+		// TODO: Execute, or push the SQL statement into an array to executed upon 'commit'.
 		
 		return insert;
 	};
 	
 	/**
-	 * Creates an {Update} object to update values in this table.
+	 * Creates an {Update} SQL statement to update values in this table.
 	 * 
 	 * @param {Object} values - An object literal with the keys as the property name for this table pointing to the columns.
 	 * @returns {Update} An Update SQL expression object.
 	 */
 	Table.prototype.update = function(values) {
-		// TODO: Convert to use new statement framework.
-		var expr = new Update(this);
+		var update = new Update(this._name),
+			that = this,
+			columns = {},
+			columnKey;
+			
+		for (columnKey in values) {
+			columns[that[columnKey].name] = values[columnKey];
+		}
 		
-		return expr;
+		update.set(columns);
+		
+		return update;
 	};
 	
 	egon.Table = Table;
@@ -425,7 +448,7 @@ var egon = {};
 	 * 
 	 * @returns {String} A SQL clause.
 	 */
-	Column.prototype.compile = function() {
+	Column.prototype.sql = function() {
 		// TODO: Add column-constraint support.
 		var sql = this.name + " " + this._type.dbType;
 		
@@ -454,7 +477,7 @@ var egon = {};
 		}
 		
 		if (this.foreignKey) {
-			sql += " CONSTRAINT " + this.foreignKey.name + this.foreignKey.compile();
+			sql += " CONSTRAINT " + this.foreignKey.name + this.foreignKey.sql();
 		}
 		
 		return sql;
@@ -500,7 +523,7 @@ var egon = {};
 	 * 
 	 * @returns {String} A SQL clause.
 	 */
-	ForeignKey.prototype.compile = function() {
+	ForeignKey.prototype.sql = function() {
 		var sql = " REFERENCES " + this.parent._name + " (",
 			i;
 		
@@ -528,7 +551,7 @@ var egon = {};
 	
 	function Expr() {
 		this._tree = [];
-		this._params = [];
+		this._params = {};
 	};
 	
 	Expr.prototype.begin = function() {
@@ -543,8 +566,8 @@ var egon = {};
 		return this;
 	};
 	
-	Expr.prototype.literal = function(literalValue) {
-		this._tree.push("'" + literalValue + "'");
+	Expr.prototype.value = function(literal) {
+		this._tree.push("'" + literal + "'");
 		
 		return this;
 	};
@@ -573,8 +596,8 @@ var egon = {};
 		return this;
 	};
 	
-	Expr.prototype.column = function(column) {
-		this._tree.push(column.name);
+	Expr.prototype.column = function(columnName) {
+		this._tree.push(columnName);
 		
 		return this;
 	};
@@ -624,7 +647,7 @@ var egon = {};
 		var stopCount = columnNames.length - 1,
 			i;
 		
-		this._tree.push("(");
+		this._tree.push(" (");
 				
 		for (i = 0; i < stopCount; i += 1) {
 			this._tree.push(columnNames[i] + ", ");
@@ -644,24 +667,45 @@ var egon = {};
 	 * @returns {Insert} This SQL statement.
 	 */
 	Insert.prototype.values = function(values) {
-		var key, 
+		var paramCount = Object.keys(this._params).length,
+			key,
+			keys,
+			count,
 			i;
 		
 		this._tree.push(" VALUES (");
 		
 		if (values instanceof Array) {
-			for (i = 0; i < values.length; i += 1) {
-				key = "value" + i
+			count = values.length - 1;
+			
+			for (i = 0; i < count; i += 1) {
+				key = "value" + (paramCount + i);
 				this._tree.push(":" + key);
+				this._tree.push(", ");
 				this._params[key] = values[i];
 			}
+			
+			key = "value" + i;
+			this._tree.push(":" + key);
+			this._params[key] = values[i];
 		} else {
-			for (key in values) {
+			keys = Object.keys(values);
+			count = keys.length - 1;
+			
+			for (i = 0; i < count; i += 1) {
+				key = keys[i];
 				this._tree.push(":" + key);
+				this._tree.push(", ");
 				this._params[key] = values[key];
 			}
+			
+			key = keys[i];
+			this._tree.push(":" + key);
+			this._params[key] = values[key];
 		}
 
+		this._tree.push(")");
+		
 		return this;
 	};
 	
@@ -685,97 +729,87 @@ var egon = {};
 		return sql;
 	};
 	
-	egon.Insert = Insert;
-	
 	/**
 	 * Constructor for the 'UPDATE' SQL statement.
 	 * 
 	 * @constructor
 	 * 
-	 * @param {Table} table - The table to update.
+	 * @param {String} tableName - The name of the table to update.
 	 */
-	function Update(table) {
-		// TODO: Convert to framework similar to the 'Insert' statement.
-		this._table = table;
-		this._values = {};
-		this._wheres = [];
+	function Update(tableName) {
+		this._tree = [];
+		this._params = {};
 		
-		var key;
-		
-		// Pre-populate the values with every column non-autoIncrement column.
-		for (key in this._table) {
-			if (this._table[key] instanceof Column && !this._table[key].autoIncrement) {
-				this._values[key] = this._table[key].defaultValue;
-			}
-		}
+		this._tree.push("UPDATE");
+		this._tree.push(" " + tableName);
 	};
 	
-	// TODO: Add SQLite expr support.
-	// TODO: Add limit support.
-	
-	/**
-	 * Adds the 'VALUES' clause to this 'UPDATE' SQL expression.
-	 * 
-	 * @param {Object} values - An object literal with the keys as the property names for the columns in the table. Value of the property in the object literal is the value to update in the table for the column.
-	 * @returns {Update} This SQL expression object.
-	 */
-	Update.prototype.values = function(values) {
-		this._values = values;
+	Update.prototype.set = function(columns) {
+		var keys = Object.keys(columns),
+			paramCount = Object.keys(this._params).length,
+			count = keys.length - 1,
+			columnName,
+			i,
+			param;
+		
+		this._tree.push(" SET ");
+		
+		for (i = 0; i < count; i += 1) {
+			columnName = keys[i];
+			this._tree.push(columnName);
+			this._tree.push(" = ");
+			param = "value" + (paramCount + i);
+			this._tree.push(":" + param);
+			this._tree.push(", ");
+			this._params[param] = columns[columnName];
+		}
+		
+		columnName = keys[i];
+		this._tree.push(columnName);
+		this._tree.push(" = ");
+		param = ":value" + (paramCount + i);
+		this._tree.push(param);
+		this._params[param] = columns[columnName];
 		
 		return this;
 	};
 	
 	/**
-	 * Adds a 'WHERE' clause to the 'UPDATE' SQl expression.
-	 * 
-	 * Additional 'WHERE' clauses will be 'AND'-ed together.
+	 * Adds a 'WHERE' clause to the 'UPDATE' SQl statement.
 	 * 
 	 * @param {Expr} expr - A SQL expression.
 	 * @returns {Update} This 'UPDATE' SQL expression.
 	 */
 	Update.prototype.where = function(expr) {
-		this._wheres.push(expr);
+		this._tree.push(" WHERE ");
+		this._tree.push(expr);
 		
 		return this;
 	};
 	
-	/**
-	 * Gets the parameters for binding to a statement.
-	 * 
-	 * @returns {Object}
-	 */
-	Update.prototype.parameters = function() {
-		return this._values;
+	Update.prototype.tree = function() {
+		return this._tree;
+	};
+	
+	Update.prototype.params = function() {
+		return this._params;
 	};
 	
 	/**
-	 * Creates a SQL expression string for the 'INSERT' statement.
+	 * Creates a SQL expression string for the 'UPDATE' statement.
 	 * 
 	 * @returns {String} A SQL string.
 	 */
 	Update.prototype.compile = function() {
-		var sql = "UPDATE " + this._table._name + " SET ",
-			key,
-			i;
+		var sql = '',
+		i;
 	
-		for (key in this._values) {
-			if (this._table[key] instanceof Column) {
-				sql += this._table[key].name + " = :" + key + ", \n";
+		for (i = 0; i < this._tree.length; i += 1) {
+			if (this._tree[i] instanceof Expr) {
+				sql += this._tree[i].compile();
+			} else {
+				sql += this._tree[i];
 			}
-		}
-
-		if (this._wheres.length > 0) {
-			// Remove trailing comma, space, and newline character.
-			sql = sql.slice(0, -3) + " WHERE ";
-			
-			for (i = 0; i < this._wheres.length; i += 1) {
-				sql += this._wheres[i].compile() + " AND ";
-			}
-			
-			// Remove trailing ')' and 'AND' and space.
-			sql = sql.slice(0, -5);	
-		} else {
-			sql = sql.slice(0, -3);
 		}
 		
 		return sql;

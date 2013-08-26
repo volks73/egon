@@ -46,19 +46,12 @@ itemsTable.unitPrice = new egon.Column('unit_price', egon.TYPES.DECIMAL, {notNul
 itemsTable.unitPrice = new egon.Column('quantity', egon.TYPES.INTEGER, {notNull: true, defaultValue: null});
 itemsTable.dateAdded = new egon.Column('date_added', egon.TYPES.DATE, {notNull: true, defaultValue: null});
 
-console.log(companiesTable.compile());
-console.log(jobOrderNumbersTable.compile());
-console.log(hazmatCodesTable.compile());
-console.log(purchaseOrdersTable.compile());
-console.log(itemsTable.compile());
+//console.log(companiesTable.sql());
+//console.log(jobOrderNumbersTable.sql());
+//console.log(hazmatCodesTable.sql());
+//console.log(purchaseOrdersTable.sql());
+//console.log(itemsTable.sql());
 
-console.log(jobOrderNumbersTable.insert().compile());
-console.log(jobOrderNumbersTable.insert().values({alias: 'test job order number', accountNumber: '11-1111-1-1-1', description: 'Test description'}).compile());
-console.log(jobOrderNumbersTable.update().compile());
-console.log(jobOrderNumbersTable.update().values({alias: 'test update job order number', accountNumber: '22-2222-2-2-2', description: 'Test update description'}).compile());
+//console.log(jobOrderNumbersTable.insert({alias: 'test', accountNumber: '00-0000-0-0-0'}).compile());
 
-console.log(jobOrderNumbersTable.update().values({
-	alias: 'test update job order number', 
-	accountNumber: '22-2222-2-2-2', 
-	description: 'Test update description',
-}).where(egon.expr().column(jobOrderNumbersTable.id).equals().value({id: '1',}).compile());
+console.log(jobOrderNumbersTable.update({alias: 'test1', accountNumber: '11-1111-1-1-1'}).where(egon.expr().column(jobOrderNumbersTable.id.name).equals().value(1)).compile());
