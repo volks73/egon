@@ -331,22 +331,29 @@ var egon = {};
 	};
 
 	/**
-	 * Creates an {Insert} object to insert values into this table.
+	 * Creates an {Insert} SQL statement to insert values into this table.
 	 * 
-	 * @returns {Insert} An Insert SQL expression object.
+	 * @param {Object} values - An object literal with the keys as the property name for this table pointing to the columns.
+	 * @returns {Insert} An 'INSERT' SQL statement.
 	 */
-	Table.prototype.insert = function() {
-		var expr = new Insert(this);
+	Table.prototype.insert = function(values) {
+		var insert = new Insert();
 		
-		return expr;
+		// TODO: Finish converting 'values' to column names and the 'VALUES' clause.
+		// TODO: Finsih converting this function to using the new 'INSERT' statement.
+		insert.into(this._name).columns().values();
+		
+		return insert;
 	};
 	
 	/**
 	 * Creates an {Update} object to update values in this table.
 	 * 
+	 * @param {Object} values - An object literal with the keys as the property name for this table pointing to the columns.
 	 * @returns {Update} An Update SQL expression object.
 	 */
-	Table.prototype.update = function() {
+	Table.prototype.update = function(values) {
+		// TODO: Convert to use new statement framework.
 		var expr = new Update(this);
 		
 		return expr;
@@ -398,8 +405,7 @@ var egon = {};
 			this.collate = options[egon.OPTIONS.COLLATE] || null;
 
 			this.foreignKey = options[egon.OPTIONS.FOREIGN_KEY] || null;	
-		}
-		else {
+		} else {
 			this.primaryKey = false;
 			this.autoIncrement = false;
 			this.notNull = false;
@@ -518,6 +524,8 @@ var egon = {};
 		
 	egon.ForeignKey = ForeignKey;
 	
+	// TODO: Add documentation for Expr.
+	
 	function Expr() {
 		this._tree = [];
 		this._params = [];
@@ -570,29 +578,7 @@ var egon = {};
 		
 		return this;
 	};
-	
-	Expr.prototype.param = function(param) {
-		this._params.push(param);
 		
-		for (key in param) {
-			this._tree.push(":" + key);	
-		}
-		
-		return this;
-	};
-	
-	// TODO: Finish designing and implementing a system for using bind parameters in expressions.
-	Expr.prototype.parameters = function() {
-		var exprParams {}; 
-			i;
-		
-		for (i = 0; i < this._params.length; i += 1) {
-			this._params[i];
-		}
-		
-		return exprParams;
-	};
-	
 	Expr.prototype.compile = function() {
 		var sql = '',
 			i;
@@ -605,79 +591,111 @@ var egon = {};
 	};
 	
 	/**
-	 * Constructor for an Insert SQL expression.
+	 * Constructor for an Insert SQL statement.
 	 * 
 	 * @constructor
-	 * 
-	 * @param {Table} table - The table to insert into.
 	 */
-	function Insert(table) {
-		this._table = table;
-		this._values = {};
-		
-		var key;
-		
-		// Pre-populate the values with every column non-autoIncrement column.
-		for (key in this._table) {
-			if (this._table[key] instanceof Column && !this._table[key].autoIncrement) {
-				this._values[key] = this._table[key].defaultValue;
-			}
-		}
+	function Insert() {
+		this._tree = [];
+		this._tree.push("INSERT");
+		this._params = {};
 	};
 	
 	/**
-	 * Adds the 'VALUES' clause to this 'INSERT' SQL expression.
+	 * Adds the 'INTO' clause to this 'INSERT' SQL statement.
 	 * 
-	 * @param {Object} values - An object literal with the keys as the property names for the columns in the table. Value of the property in the object literal is the value to insert in the table for the column.
-	 * @returns {Insert} This SQL expression object.
+	 * @param {String} tableName - The table name.
+	 * @returns {Insert} This 'INSERT' SQL statement.
 	 */
-	Insert.prototype.values = function(values) {
-		this._values = values;
+	Insert.prototype.into = function(tableName) {
+		this._tree.push(" INTO ");
+		this._tree.push(tableName);
 		
 		return this;
 	};
 	
 	/**
-	 * Gets the parameters for binding to a statement for execution.
+	 * Adds the 'column-name' clause to this 'INSERT' SQL statement.
 	 * 
-	 * @returns {Object}
+	 * @param {Array} columnNames - The column names as {String}.
+	 * @returns {Insert} This 'INSERT' SQL statement.
 	 */
-	Insert.prototype.parameters = function() {
-		return this._values;
+	Insert.prototype.columns = function(columnNames) {
+		var stopCount = columnNames.length - 1,
+			i;
+		
+		this._tree.push("(");
+				
+		for (i = 0; i < stopCount; i += 1) {
+			this._tree.push(columnNames[i] + ", ");
+		}
+		
+		this._tree.push(columnNames[i] + ")");
+		
+		return this;
 	};
 	
 	/**
-	 * Creates a SQL expression string for the 'INSERT' statement.
+	 * Adds the 'VALUES' clause to this 'INSERT' SQL statement.
+	 * 
+	 * Named bind-parameters will be created if the 'values' parameter is an {Array}; otherwise, the keys in the {Object} literal will be used as the named bind-parameters if the 'values' parameter is an {Object} literal. 
+	 * 
+	 * @param {Object|Array} values - An object literal with the keys as the property names for the columns in the table. Value of the property in the object literal is the value to insert in the table for the column.
+	 * @returns {Insert} This SQL statement.
+	 */
+	Insert.prototype.values = function(values) {
+		var key, 
+			i;
+		
+		this._tree.push(" VALUES (");
+		
+		if (values instanceof Array) {
+			for (i = 0; i < values.length; i += 1) {
+				key = "value" + i
+				this._tree.push(":" + key);
+				this._params[key] = values[i];
+			}
+		} else {
+			for (key in values) {
+				this._tree.push(":" + key);
+				this._params[key] = values[key];
+			}
+		}
+
+		return this;
+	};
+	
+	/**
+	 * Creates a SQL string for this 'INSERT' statement.
 	 * 
 	 * @returns {String} A SQL string.
 	 */
 	Insert.prototype.compile = function() {
-		var sql = "INSERT INTO " + this._table._name + " (",
-			columnSQL = '',
-			valueSQL = '',
-			key;
-		
-		for (key in this._values) {
-			if (this._table[key] instanceof Column) {
-				columnSQL += this._table[key].name + ", ";
-				valueSQL += ":" + key + ", ";
+		var sql = '',
+		i;
+	
+		for (i = 0; i < this._tree.length; i += 1) {
+			if (this._tree[i] instanceof Expr) {
+				sql += this._tree[i].compile();
+			} else {
+				sql += this._tree[i];
 			}
 		}
-
-		// Remove trailing comma and space.
-		sql += columnSQL.slice(0, -2) + ") VALUES (" + valueSQL.slice(0, -2) + ")";
 		
 		return sql;
 	};
 	
+	egon.Insert = Insert;
+	
 	/**
-	 * Constructor for the 'UPDATE' SQL expression.
+	 * Constructor for the 'UPDATE' SQL statement.
 	 * 
 	 * @constructor
 	 * 
 	 * @param {Table} table - The table to update.
 	 */
 	function Update(table) {
+		// TODO: Convert to framework similar to the 'Insert' statement.
 		this._table = table;
 		this._values = {};
 		this._wheres = [];
@@ -756,8 +774,7 @@ var egon = {};
 			
 			// Remove trailing ')' and 'AND' and space.
 			sql = sql.slice(0, -5);	
-		}
-		else {
+		} else {
 			sql = sql.slice(0, -3);
 		}
 		
