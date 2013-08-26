@@ -448,12 +448,87 @@ var egon = {};
 	 * equals operator and a value as a literal value for the right operand.
 	 * 
 	 * @param {String|Number} value - The right operand value.
-	 * @returns {Expr} A SQL expression that can be used for a 'WHERE' claused or chained together with other expressions.
+	 * @returns {Expr} A SQL expression that can be used for a 'WHERE' clause or chained together with other expressions.
 	 */
 	Column.prototype.equals = function(value) {
 		var expr = new Expr();
 		
 		expr = expr.column(this.name).equals().value(value);
+		
+		return expr;
+	};
+	
+	/**
+	 * Returns a SQL expression with this column's name as the left operand for the
+	 * not equals operator and a value as a literal value for the right operand.
+	 * 
+	 * @param {String|Number} value - The right operand value.
+	 * @returns {Expr} A SQL expression that can be used for a 'WHERE' clause or chained together with other expressions.
+	 */
+	Column.prototype.notEquals = function(value) {
+		var expr = new Expr();
+		
+		expr = expr.column(this.name).notEquals().value(value);
+		
+		return expr;
+	};
+	
+	/**
+	 * Returns a SQL expression with this column's name as the left operand for the
+	 * less than operator and a value as a literal value for the right operand.
+	 * 
+	 * @param {String|Number} value - The right operand value.
+	 * @returns {Expr} A SQL expression that can be used for a 'WHERE' clause or chained together with other expressions.
+	 */
+	Column.prototype.lessThan = function(value) {
+		var expr = new Expr();
+		
+		expr = expr.column(this.name).lessThan().value(value);
+		
+		return expr;
+	};
+	
+	/**
+	 * Returns a SQL expression with this column's name as the left operand for the
+	 * greater than operator and a value as a literal value for the right operand.
+	 * 
+	 * @param {String|Number} value - The right operand value.
+	 * @returns {Expr} A SQL expression that can be used for a 'WHERE' clause or chained together with other expressions.
+	 */
+	Column.prototype.greaterThan = function(value) {
+		var expr = new Expr();
+		
+		expr = expr.column(this.name).greaterThan().value(value);
+		
+		return expr;
+	};
+	
+	/**
+	 * Returns a SQL expression with this column's name as the left operand for the
+	 * less than equals operator and a value as a literal value for the right operand.
+	 * 
+	 * @param {String|Number} value - The right operand value.
+	 * @returns {Expr} A SQL expression that can be used for a 'WHERE' clause or chained together with other expressions.
+	 */
+	Column.prototype.lessThanEquals = function(value) {
+		var expr = new Expr();
+		
+		expr = expr.column(this.name).lessThanEquals().value(value);
+		
+		return expr;
+	};
+	
+	/**
+	 * Returns a SQL expression with this column's name as the left operand for the
+	 * greater than equals operator and a value as a literal value for the right operand.
+	 * 
+	 * @param {String|Number} value - The right operand value.
+	 * @returns {Expr} A SQL expression that can be used for a 'WHERE' clause or chained together with other expressions.
+	 */
+	Column.prototype.greaterThanEquals = function(value) {
+		var expr = new Expr();
+		
+		expr = expr.column(this.name).greaterThanEquals().value(value);
 		
 		return expr;
 	};
@@ -621,11 +696,61 @@ var egon = {};
 		return this;
 	};
 	
-	// TODO: Add not equals operator function.
-	// TODO: Add less than operator function.
-	// TODO: Add greater than operator function.
-	// TODO: Add less than equals operator function.
-	// TODO: Add greater than equals operator function.
+	/**
+	 * Adds the '!=' operator to this expression.
+	 * 
+	 * @returns {Expr} This expression.
+	 */
+	Expr.prototype.notEquals = function() {
+		this._tree.push(' ' + egon.OPERATORS.NOT_EQUALS + ' ');
+		
+		return this;
+	};
+	
+	/**
+	 * Adds the '<' operator to this expression.
+	 * 
+	 * @returns {Expr} This expression.
+	 */
+	Expr.prototype.lessThan = function() {
+		this._tree.push(' ' + egon.OPERATORS.LESS_THAN + ' ');
+		
+		return this;
+	};
+	
+	/**
+	 * Adds the '>' operator to this expression.
+	 * 
+	 * @returns {Expr} This expression.
+	 */
+	Expr.prototype.greaterThan = function() {
+		this._tree.push(' ' + egon.OPERATORS.GREATER_THAN + ' ');
+		
+		return this;
+	};
+	
+	/**
+	 * Adds the '<=' operator to this expression.
+	 * 
+	 * @returns {Expr} This expression.
+	 */
+	Expr.prototype.lessThanEquals = function() {
+		this._tree.push(' ' + egon.OPERATORS.LESS_THAN_EQUALS + ' ');
+		
+		return this;
+	};
+	
+	/**
+	 * Adds the '>=' operator to this expression.
+	 * 
+	 * @returns {Expr} This expression.
+	 */
+	Expr.prototype.greaterThanEquals = function() {
+		this._tree.push(' ' + egon.OPERATORS.GREATER_THAN_EQUALS + ' ');
+		
+		return this;
+	};
+	
 	// TODO: Add 'LIKE' operator function.
 	
 	/**
