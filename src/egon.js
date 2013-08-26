@@ -197,7 +197,8 @@ var egon = {};
 			stmt,
 			stmtParams,
 			key,
-			bindParam;
+			bindParam,
+			i;
 		
 		dump(egonStmt.compile() + "\n");
 			
@@ -205,15 +206,12 @@ var egon = {};
 		stmtParams = stmt.newBindingParamsArray();
 		bindParam = stmtParams.newBindingParams();
 		
-		for (key in exprParams) {
-			// TODO: Add support for indexed, or numbered, bind parameters.
-//			if (key.charAt(0) == "?") {
-//				dump((key.slice(1) - 1) + "\n");
-//				bindParam.bindByIndex(key.slice(1) - 1, exprParams[key]);
-//			} else {
-//				bindParam.bindByName(key, exprParams[key]);
-//			}
-			bindParam.bindByName(key, exprParams[key]);
+		for (key in exprParams.named) {
+			bindParam.bindByName(key, exprParams.named[key]);
+		}
+		
+		for (i = 0; i < exprParams.indexed.length; i += 1) {
+			bindParam.bindByIndex(i, exprParams.indexed[i]);
 		}
 		
 		stmtParams.addParams(bindParam);
@@ -646,6 +644,27 @@ var egon = {};
 		
 	egon.ForeignKey = ForeignKey;
 	
+	function Parameters() {
+		this.index = [];
+		this.named = {};
+	};
+	
+	Parameters.prototype.append = function(parameters) {
+		var keys,
+			key,
+			i;
+	
+		keys = Object.keys(parameters.named);
+		for (i = 0; i < keys.length; i += 1) {
+			key = keys[i];
+			this.named[key] = parameters.named[key];
+		}
+		
+		this.indexed.concat(parameters.indexed);
+	};
+	
+	// TODO: Create super 'class' for Expr, Insert and Update to inherent the compile function.
+	
 	/**
 	 * Constructor for a SQL expression.
 	 * 
@@ -653,7 +672,7 @@ var egon = {};
 	 */
 	function Expr() {
 		this._tree = [];
-		this._params = {};
+		this._params = new Parameters();
 	};
 	
 	/**
@@ -688,12 +707,9 @@ var egon = {};
 	 * @param {String|Number} literal - The literal value. 
 	 * @returns {Expr} This expression.
 	 */
-	Expr.prototype.value = function(literal) {
-		var paramCount = Object.keys(this._params).length + 1,
-			key = "?" + paramCount;
-		
-		this._tree.push(key);
-		this._params[paramCount] = literal;
+	Expr.prototype.value = function(literal) {		
+		this._tree.push("?" + (this._params.indexed.length + 1));
+		this._params.indexed.push(literal);
 				
 		return this;
 	};
@@ -818,10 +834,15 @@ var egon = {};
 	 */
 	Expr.prototype.compile = function() {
 		var sql = '',
-			i;
-		
+		i;
+	
 		for (i = 0; i < this._tree.length; i += 1) {
-			sql += this._tree[i];
+			if (this._tree[i] instanceof Expr) {
+				sql += this._tree[i].compile();
+				this._params.append(this._tree[i].parameters());
+			} else {
+				sql += this._tree[i];
+			}
 		}
 		
 		return sql;
@@ -843,8 +864,9 @@ var egon = {};
 	 */
 	function Insert() {
 		this._tree = [];
+		this._params = new Parameters();
+		
 		this._tree.push("INSERT");
-		this._params = {};
 	};
 	
 	/**
@@ -904,12 +926,12 @@ var egon = {};
 			key = keys[i];
 			this._tree.push(":" + key);
 			this._tree.push(", ");
-			this._params[key] = values[key];
+			this._params.named[key] = values[key];
 		}
 			
 		key = keys[i];
 		this._tree.push(":" + key);
-		this._params[key] = values[key];
+		this._params.named[key] = values[key];
 		this._tree.push(")");
 		
 		return this;
@@ -927,6 +949,7 @@ var egon = {};
 		for (i = 0; i < this._tree.length; i += 1) {
 			if (this._tree[i] instanceof Expr) {
 				sql += this._tree[i].compile();
+				this._params.append(this._tree[i].parameters());
 			} else {
 				sql += this._tree[i];
 			}
@@ -953,7 +976,7 @@ var egon = {};
 	 */
 	function Update(tableName) {
 		this._tree = [];
-		this._params = {};
+		this._params = new Parameters();
 		
 		this._tree.push("UPDATE");
 		this._tree.push(" " + tableName);
@@ -981,14 +1004,14 @@ var egon = {};
 			this._tree.push(" = ");
 			this._tree.push(":" + columnName);
 			this._tree.push(", ");
-			this._params[columnName] = columns[columnName];
+			this._params.named[columnName] = columns[columnName];
 		}
 		
 		columnName = keys[i];
 		this._tree.push(columnName);
 		this._tree.push(" = ");
 		this._tree.push(":" + columnName);
-		this._params[columnName] = columns[columnName];
+		this._params.named[columnName] = columns[columnName];
 		
 		return this;
 	};
@@ -1014,28 +1037,16 @@ var egon = {};
 	Update.prototype.compile = function() {
 		var sql = '',
 			i;
-		
-		var append = function(parameters) {
-			var keys,
-				key,
-				i;
-			
-			keys = Object.keys(parameters);
-			for (i = 0; i < keys.length; i += 1) {
-				key = keys[i];
-				this._params[key] = parameters[key];
-			}
-		};
 	
 		for (i = 0; i < this._tree.length; i += 1) {
 			if (this._tree[i] instanceof Expr) {
 				sql += this._tree[i].compile();
-				append(this._tree[i].parameters());
+				this._params.append(this._tree[i].parameters());
 			} else {
 				sql += this._tree[i];
 			}
 		}
-		
+				
 		return sql;
 	};
 	
