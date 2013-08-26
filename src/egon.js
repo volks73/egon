@@ -764,7 +764,7 @@ var egon = {};
 	};
 	
 	/**
-	 * Creates a SQL string for this 'INSERT' statement.
+	 * Creates a SQL string ready for binding parameters and execution.
 	 * 
 	 * @returns {String} A SQL string.
 	 */
@@ -798,6 +798,12 @@ var egon = {};
 		this._tree.push(" " + tableName);
 	};
 	
+	/**
+	 * Adds the 'SET' and column clauses to this 'UPDATE' SQL statement.
+	 * 
+	 * @param {Object} columns - An object literal with the keys as the column names and the values as the values to update. 
+	 * @returns {Update} This SQL statement.
+	 */
 	Update.prototype.set = function(columns) {
 		var keys = Object.keys(columns),
 			paramCount = Object.keys(this._params).length,
@@ -829,10 +835,10 @@ var egon = {};
 	};
 	
 	/**
-	 * Adds a 'WHERE' clause to the 'UPDATE' SQl statement.
+	 * Adds a 'WHERE' clause to this 'UPDATE' SQL statement.
 	 * 
 	 * @param {Expr} expr - A SQL expression.
-	 * @returns {Update} This 'UPDATE' SQL expression.
+	 * @returns {Update} This SQL statement.
 	 */
 	Update.prototype.where = function(expr) {
 		this._tree.push(" WHERE ");
@@ -841,16 +847,8 @@ var egon = {};
 		return this;
 	};
 	
-	Update.prototype.tree = function() {
-		return this._tree;
-	};
-	
-	Update.prototype.params = function() {
-		return this._params;
-	};
-	
 	/**
-	 * Creates a SQL expression string for the 'UPDATE' statement.
+	 * Creates a SQL string ready for binding parameters and execution.
 	 * 
 	 * @returns {String} A SQL string.
 	 */
