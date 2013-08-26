@@ -54,4 +54,4 @@ itemsTable.dateAdded = new egon.Column('date_added', egon.TYPES.DATE, {notNull: 
 
 //console.log(jobOrderNumbersTable.insert({alias: 'test', accountNumber: '00-0000-0-0-0'}).compile());
 
-console.log(jobOrderNumbersTable.update({alias: 'test1', accountNumber: '11-1111-1-1-1'}).where(egon.expr().column(jobOrderNumbersTable.id.name).equals().value(1)).compile());
+console.log(jobOrderNumbersTable.update({alias: 'test1', accountNumber: '11-1111-1-1-1'}).where(jobOrderNumbersTable.id.equals(1)).compile());

@@ -444,6 +444,21 @@ var egon = {};
 	};
 	
 	/**
+	 * Returns a SQL expression with this column's name as the left operand for the
+	 * equals operator and a value as a literal value for the right operand.
+	 * 
+	 * @param {String|Number} value - The right operand value.
+	 * @returns {Expr} A SQL expression that can be used for a 'WHERE' claused or chained together with other expressions.
+	 */
+	Column.prototype.equals = function(value) {
+		var expr = new Expr();
+		
+		expr = expr.column(this.name).equals().value(value);
+		
+		return expr;
+	};
+	
+	/**
 	 * Creates an SQL string to create the column for a table.
 	 * 
 	 * @returns {String} A SQL clause.
@@ -605,6 +620,13 @@ var egon = {};
 		
 		return this;
 	};
+	
+	// TODO: Add not equals operator function.
+	// TODO: Add less than operator function.
+	// TODO: Add greater than operator function.
+	// TODO: Add less than equals operator function.
+	// TODO: Add greater than equals operator function.
+	// TODO: Add 'LIKE' operator function.
 	
 	/**
 	 * Adds the 'AND' operator to this expression.
