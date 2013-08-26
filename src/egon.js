@@ -547,61 +547,115 @@ var egon = {};
 		
 	egon.ForeignKey = ForeignKey;
 	
-	// TODO: Add documentation for Expr.
-	
+	/**
+	 * Constructor for a SQL expression.
+	 * 
+	 * @constructor
+	 */
 	function Expr() {
 		this._tree = [];
 		this._params = {};
 	};
 	
+	/**
+	 * Begins a group expression. 
+	 * 
+	 * This pushes a '(' onto the tree.
+	 * 
+	 * @returns {Expr} This expression.
+	 */
 	Expr.prototype.begin = function() {
 		this._tree.push('(');
 		
 		return this;
 	};
 	
+	/**
+	 * Ends a group expression.
+	 * 
+	 * This pushes a ')' onto the tree.
+	 * 
+	 * @returns {Expr} This expression.
+	 */
 	Expr.prototype.end = function() {
 		this._tree.push(')');
 		
 		return this;
 	};
 	
+	/**
+	 * Adds a literal value to this expression.
+	 * 
+	 * @param {String|Number} literal - The literal value. 
+	 * @returns {Expr} This expression.
+	 */
 	Expr.prototype.value = function(literal) {
 		this._tree.push("'" + literal + "'");
 		
 		return this;
 	};
 	
+	/**
+	 * Adds the '==' operator to this expression.
+	 * 
+	 * @returns {Expr} This expression.
+	 */
 	Expr.prototype.equals = function() {
 		this._tree.push(' ' + egon.OPERATORS.EQUALS + ' ');
 		
 		return this;
 	};
 	
+	/**
+	 * Adds the 'AND' operator to this expression.
+	 * 
+	 * @returns {Expr} This expression.
+	 */
 	Expr.prototype.and = function() {
 		this._tree.push(' ' + egon.OPERATORS.AND + ' ');
 		
 		return this;
 	};
 	
+	/**
+	 * Adds the 'OR' operator to this expression.
+	 * 
+	 * @returns {Expr} This expression.
+	 */
 	Expr.prototype.or = function() {
 		this._tree.push(' ' + egon.OPERATOR.OR + ' ');
 		
 		return this;
 	};
 	
+	/**
+	 * Adds the 'NOT' operator to this expression.
+	 * 
+	 * @returns {Expr} This expression.
+	 */
 	Expr.prototype.not = function() {
 		this._tree.push(egon.OPERATORS.NOT);
 		
 		return this;
 	};
 	
+	/**
+	 * Adds a column name to this expression.
+	 * 
+	 * @param {String} columnName - The column name.
+	 * @returns {Expr} This expression.
+	 */
 	Expr.prototype.column = function(columnName) {
 		this._tree.push(columnName);
 		
 		return this;
 	};
-		
+	
+	/**
+	 * Creates a SQL string ready for binding parameters and execution.
+	 * 
+	 * @returns {String} The SQL string.
+	 */
 	Expr.prototype.compile = function() {
 		var sql = '',
 			i;
