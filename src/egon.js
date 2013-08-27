@@ -59,7 +59,7 @@ var Egon = {};
 		INTEGER: {display: 'integer', dbType: 'INTEGER', jsType: 0},
 		BOOLEAN: {display: 'boolean', dbType: 'INTEGER', jsType: false},
 		DECIMAL: {display: 'decimal', dbType: 'REAL', jsType: 0.0},
-		DATE: {display: 'date', dbType: 'TEXT', jsType: new Date()},
+		DATE: {display: 'date', dbType: 'INTEGER', jsType: new Date()},
 	};
 	
 	/**
