@@ -33,12 +33,12 @@
  * the terms of any one of the MPL, the GPL or the LGPL.
  *
  * ***** END LICENSE BLOCK ***** */
-var EXPORTED_SYMBOLS = ["egon"];
+var EXPORTED_SYMBOLS = ["Egon"];
 
 /**
  * @namespace
  */
-var egon = {};
+var Egon = {};
 
 (function() {
 	var dbConn, 
@@ -53,7 +53,7 @@ var egon = {};
 	 * @typedef {Object} TypeConstant
 	 * @readonly
 	 */
-	egon.TYPES = {
+	Egon.TYPES = {
 		NULL: {display: 'null', dbType: 'NULL', jsType: null},
 		TEXT: {display: 'text', dbType: 'TEXT', jsType: ''},
 		INTEGER: {display: 'integer', dbType: 'INTEGER', jsType: 0},
@@ -68,7 +68,7 @@ var egon = {};
 	 * @typedef {String} OptionsConstant
 	 * @readonly
 	 */
-	egon.OPTIONS = {
+	Egon.OPTIONS = {
 		PRIMARY_KEY: 'primaryKey',
 		AUTO_INCREMENT: 'autoIncrement',
 		NOT_NULL: 'notNull',
@@ -84,7 +84,7 @@ var egon = {};
 	 * @typedef {String} CollateConstant
 	 * @readonly
 	 */
-	egon.COLLATE = {
+	Egon.COLLATE = {
 		BINARY: 'BINARY',
 		NOCASE: 'NOCASE',
 		RTRIM: 'RTRIM',	
@@ -96,7 +96,7 @@ var egon = {};
 	 * @typedef {String} ConflictConstant
 	 * @readonly
 	 */
-	egon.CONFLICT = {
+	Egon.CONFLICT = {
 		ROLLBACK: 'ROLLBACK',
 		ABORT: 'ABORT',
 		FAIL: 'FAIL',
@@ -110,7 +110,7 @@ var egon = {};
 	 * @typedef {String} ActionsConstant
 	 * @readonly
 	 */
-	egon.ACTIONS = {
+	Egon.ACTIONS = {
 		SET_NULL: 'SET NULL',
 		SET_DEFAULT: 'SET DEFAULT',
 		CASCADE: 'CASCADE',
@@ -124,7 +124,7 @@ var egon = {};
 	 * @typedef {String} DefersConstant
 	 * @readonly
 	 */
-	egon.DEFERS = {
+	Egon.DEFERS = {
 		DEFERRED: 'INITIALLY DEFERRED',
 		IMMEDIATE: 'INITIALLY IMMEDIATE',
 	};
@@ -135,7 +135,7 @@ var egon = {};
 	 * @typedef {String} OperatorsConstant.
 	 * @readonly
 	 */
-	egon.OPERATORS = {
+	Egon.OPERATORS = {
 		EQUALS: '=',
 		NOT_EQUALS: '!=',
 		LESS_THAN: '<',
@@ -162,7 +162,7 @@ var egon = {};
 	 * 
 	 * @param {mozIStorageConnection} aDBConn - A connection to a database. 
 	 */
-	egon.init = function(aDBConn) {
+	Egon.init = function(aDBConn) {
 		dbConn = aDBConn;
 	};
 	
@@ -170,7 +170,7 @@ var egon = {};
 	 * Creates all of the metadata, or database tables. The "IF NOT EXIST" clause is used, so the
 	 * tables will not be deleted or overwritten if they already exist.
 	 */
-	egon.createAll = function() {
+	Egon.createAll = function() {
 		var key, 
 			stmt;
 		
@@ -192,7 +192,7 @@ var egon = {};
 	 * @param {mozIStorageStatementCallback} [callback] - A callback.
 	 */
 	// TODO: Update documentation with description of callback.
-	egon.execute = function(clause, callback) {
+	Egon.execute = function(clause, callback) {
 		var clauseParams = clause.parameters(),
 			compiledClause = clause.compile(),
 			stmtParams,
@@ -203,24 +203,18 @@ var egon = {};
 		
 		dump(compiledClause + "\n");
 		
-		// TODO: Figure out binding parameters.
 		// TODO: Convert parameters to a singleton for all expressions that empties on compile.
 		// TODO: Convert 'compile' to 'sql' and make 'compile' an Egon level function.
+		
 		stmt = dbConn.createAsyncStatement(compiledClause);
 		stmtParams = stmt.newBindingParamsArray();		
+		bindParams = stmtParams.newBindingParams();
 		
-		for (key in clauseParams.named) {
-			bindParams = stmtParams.newBindingParams();
-			bindParams.bindByName(key, clauseParams.named[key]);
-			stmtParams.addParams(bindParams);
+		for (key in clauseParams) {
+			bindParams.bindByName(key, clauseParams[key]);
 		}
 		
-		for (i = 0; i < clauseParams.indexed.length; i += 1) {
-			bindParams = stmtParams.newBindingParams();
-			bindParams.bindByIndex(i, clauseParams.indexed[i]);
-			stmtParams.addParams(bindParams);
-		}
-		
+		stmtParams.addParams(bindParams);
 		stmt.bindParameters(stmtParams);
 		
 		stmt.executeAsync(callback);		
@@ -229,7 +223,7 @@ var egon = {};
 	/**
 	 * Creates an {Expr} object.
 	 */
-	egon.expr = function() {
+	Egon.expr = function() {
 		return new Expr();
 	};
 	
@@ -395,7 +389,7 @@ var egon = {};
 		return update;
 	};
 	
-	egon.Table = Table;
+	Egon.Table = Table;
 	
 	// TODO: Add support for creating indices for a table on a column.
 	
@@ -427,20 +421,20 @@ var egon = {};
 		// TODO: Add support for conflict-clause
 		
 		if (options) {
-			this.primaryKey = options[egon.OPTIONS.PRIMARY_KEY] || false;
-			this.autoIncrement = options[egon.OPTIONS.AUTO_INCREMENT] || false;
+			this.primaryKey = options[Egon.OPTIONS.PRIMARY_KEY] || false;
+			this.autoIncrement = options[Egon.OPTIONS.AUTO_INCREMENT] || false;
 			
 			// TODO: Add support for conflict-clause
-			this.notNull = options[egon.OPTIONS.NOT_NULL] || false;
+			this.notNull = options[Egon.OPTIONS.NOT_NULL] || false;
 			
 			// TODO: Add support for conflict-clause
-			this.unique = options[egon.OPTIONS.UNIQUE] || false;
+			this.unique = options[Egon.OPTIONS.UNIQUE] || false;
 			
 			// TODO: Add expression support
-			this.defaultValue = options[egon.OPTIONS.DEFAULT_VALUE] || 'NULL';
-			this.collate = options[egon.OPTIONS.COLLATE] || null;
+			this.defaultValue = options[Egon.OPTIONS.DEFAULT_VALUE] || 'NULL';
+			this.collate = options[Egon.OPTIONS.COLLATE] || null;
 
-			this.foreignKey = options[egon.OPTIONS.FOREIGN_KEY] || null;	
+			this.foreignKey = options[Egon.OPTIONS.FOREIGN_KEY] || null;	
 		} else {
 			this.primaryKey = false;
 			this.autoIncrement = false;
@@ -586,7 +580,7 @@ var egon = {};
 		return sql;
 	};
 	
-	egon.Column = Column;
+	Egon.Column = Column;
 	
 	/**
 	 * Constructor for a Foreign Key.
@@ -648,7 +642,7 @@ var egon = {};
 		return sql;
 	};
 		
-	egon.ForeignKey = ForeignKey;
+	Egon.ForeignKey = ForeignKey;
 	
 	function Parameters() {
 		this.indexed = [];
@@ -678,7 +672,7 @@ var egon = {};
 	 */
 	function Expr() {
 		this._tree = [];
-		this._params = new Parameters();
+		this._params = {};
 	};
 	
 	/**
@@ -716,9 +710,21 @@ var egon = {};
 	 * @returns {Expr} This expression.
 	 */
 	Expr.prototype.value = function(literal) {
-		// TODO: Change '?' to a constant.
-		this._tree.push("?1");
-		this._params.indexed.push(literal);
+		
+		var paramsCount = Object.keys(this._params).length,
+			repeat = paramsCount / 26,
+			n = paramsCount % 26,
+			param = "literal",
+			i;
+		
+		param += String.fromCharCode(65 + n);
+			
+		for (i = 0; i < repeat; i += 1) {
+			param += String.fromCharCode(65 + n);	 
+		}
+		
+		this._tree.push(":" + param);
+		this._params[param] = literal;
 		
 		return this;
 	};
@@ -729,7 +735,7 @@ var egon = {};
 	 * @returns {Expr} This expression.
 	 */
 	Expr.prototype.equals = function() {
-		this._tree.push(" " + egon.OPERATORS.EQUALS + " ");
+		this._tree.push(" " + Egon.OPERATORS.EQUALS + " ");
 		
 		return this;
 	};
@@ -740,7 +746,7 @@ var egon = {};
 	 * @returns {Expr} This expression.
 	 */
 	Expr.prototype.notEquals = function() {
-		this._tree.push(' ' + egon.OPERATORS.NOT_EQUALS + ' ');
+		this._tree.push(' ' + Egon.OPERATORS.NOT_EQUALS + ' ');
 		
 		return this;
 	};
@@ -751,7 +757,7 @@ var egon = {};
 	 * @returns {Expr} This expression.
 	 */
 	Expr.prototype.lessThan = function() {
-		this._tree.push(' ' + egon.OPERATORS.LESS_THAN + ' ');
+		this._tree.push(' ' + Egon.OPERATORS.LESS_THAN + ' ');
 		
 		return this;
 	};
@@ -762,7 +768,7 @@ var egon = {};
 	 * @returns {Expr} This expression.
 	 */
 	Expr.prototype.greaterThan = function() {
-		this._tree.push(' ' + egon.OPERATORS.GREATER_THAN + ' ');
+		this._tree.push(' ' + Egon.OPERATORS.GREATER_THAN + ' ');
 		
 		return this;
 	};
@@ -773,7 +779,7 @@ var egon = {};
 	 * @returns {Expr} This expression.
 	 */
 	Expr.prototype.lessThanEquals = function() {
-		this._tree.push(' ' + egon.OPERATORS.LESS_THAN_EQUALS + ' ');
+		this._tree.push(' ' + Egon.OPERATORS.LESS_THAN_EQUALS + ' ');
 		
 		return this;
 	};
@@ -784,7 +790,7 @@ var egon = {};
 	 * @returns {Expr} This expression.
 	 */
 	Expr.prototype.greaterThanEquals = function() {
-		this._tree.push(' ' + egon.OPERATORS.GREATER_THAN_EQUALS + ' ');
+		this._tree.push(' ' + Egon.OPERATORS.GREATER_THAN_EQUALS + ' ');
 		
 		return this;
 	};
@@ -797,7 +803,7 @@ var egon = {};
 	 * @returns {Expr} This expression.
 	 */
 	Expr.prototype.and = function() {
-		this._tree.push(' ' + egon.OPERATORS.AND + ' ');
+		this._tree.push(' ' + Egon.OPERATORS.AND + ' ');
 		
 		return this;
 	};
@@ -808,7 +814,7 @@ var egon = {};
 	 * @returns {Expr} This expression.
 	 */
 	Expr.prototype.or = function() {
-		this._tree.push(' ' + egon.OPERATOR.OR + ' ');
+		this._tree.push(' ' + Egon.OPERATOR.OR + ' ');
 		
 		return this;
 	};
@@ -819,7 +825,7 @@ var egon = {};
 	 * @returns {Expr} This expression.
 	 */
 	Expr.prototype.not = function() {
-		this._tree.push(egon.OPERATORS.NOT);
+		this._tree.push(Egon.OPERATORS.NOT);
 		
 		return this;
 	};
@@ -843,12 +849,21 @@ var egon = {};
 	 */
 	Expr.prototype.compile = function() {
 		var sql = '',
-		i;
+			that = this,
+			i;
 	
+		var appendParams = function(parameters) {
+			var key;
+			
+			for (key in parameters) {
+				that._params[key] = parameters[key];
+			}
+		};
+		
 		for (i = 0; i < this._tree.length; i += 1) {
 			if (this._tree[i] instanceof Expr) {
 				sql += this._tree[i].compile();
-				this._params.append(this._tree[i].parameters());
+				appendParams(this._tree[i].parameters());
 			} else {
 				sql += this._tree[i];
 			}
@@ -873,7 +888,7 @@ var egon = {};
 	 */
 	function Insert() {
 		this._tree = [];
-		this._params = new Parameters();
+		this._params = {};
 		
 		this._tree.push("INSERT");
 	};
@@ -935,12 +950,12 @@ var egon = {};
 			key = keys[i];
 			this._tree.push(":" + key);
 			this._tree.push(", ");
-			this._params.named[key] = values[key];
+			this._params[key] = values[key];
 		}
 			
 		key = keys[i];
 		this._tree.push(":" + key);
-		this._params.named[key] = values[key];
+		this._params[key] = values[key];
 		this._tree.push(")");
 		
 		return this;
@@ -953,12 +968,21 @@ var egon = {};
 	 */
 	Insert.prototype.compile = function() {
 		var sql = '',
-		i;
+			that = this,
+			i;
 	
+		var appendParams = function(parameters) {
+			var key;
+			
+			for (key in parameters) {
+				that._params[key] = parameters[key];
+			}
+		};
+		
 		for (i = 0; i < this._tree.length; i += 1) {
 			if (this._tree[i] instanceof Expr) {
 				sql += this._tree[i].compile();
-				this._params.append(this._tree[i].parameters());
+				appendParams(this._tree[i].parameters());
 			} else {
 				sql += this._tree[i];
 			}
@@ -985,7 +1009,7 @@ var egon = {};
 	 */
 	function Update(tableName) {
 		this._tree = [];
-		this._params = new Parameters();
+		this._params = {};
 		
 		this._tree.push("UPDATE");
 		this._tree.push(" " + tableName);
@@ -1013,14 +1037,14 @@ var egon = {};
 			this._tree.push(" = ");
 			this._tree.push(":" + columnName);
 			this._tree.push(", ");
-			this._params.named[columnName] = columns[columnName];
+			this._params[columnName] = columns[columnName];
 		}
 		
 		columnName = keys[i];
 		this._tree.push(columnName);
 		this._tree.push(" = ");
 		this._tree.push(":" + columnName);
-		this._params.named[columnName] = columns[columnName];
+		this._params[columnName] = columns[columnName];
 		
 		return this;
 	};
@@ -1045,12 +1069,21 @@ var egon = {};
 	 */
 	Update.prototype.compile = function() {
 		var sql = '',
+			that = this,
 			i;
+
+		var appendParams = function(parameters) {
+			var key;
 			
+			for (key in parameters) {
+				that._params[key] = parameters[key];
+			}
+		};
+		
 		for (i = 0; i < this._tree.length; i += 1) {
 			if (this._tree[i] instanceof Expr) {
 				sql += this._tree[i].compile();
-				this._params.append(this._tree[i].parameters());
+				appendParams(this._tree[i].parameters());
 			} else {
 				sql += this._tree[i];
 			}
@@ -1074,7 +1107,7 @@ var egon = {};
 			var that = this, keys = Object.keys(columns), i;
 			
 			this.id = null;
-			this._table = egon.metadata[tableName];
+			this._table = Egon.metadata[tableName];
 			this._fields = fields;
 			this._data = {};
 			this._listeners = [];
@@ -1139,5 +1172,5 @@ var egon = {};
 		return Class;
 	};
 	
-	egon.Class = Class;
+	Egon.Class = Class;
 }());
