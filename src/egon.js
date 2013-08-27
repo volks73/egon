@@ -618,7 +618,7 @@ var Egon = {};
 	/**
 	 * Creates a SQL string for creating the foreign key in a table.
 	 * 
-	 * @returns {String} A SQL clause.
+	 * @returns {String} A SQL string.
 	 */
 	ForeignKey.prototype.sql = function() {
 		var sql = " REFERENCES " + this.parent._name + " (",
@@ -644,46 +644,86 @@ var Egon = {};
 		
 	Egon.ForeignKey = ForeignKey;
 	
-	function Parameters() {
-		this.indexed = [];
-		this.named = {};
-	};
-	
-	Parameters.prototype.append = function(parameters) {
-		var keys,
-			key,
-			i;
-	
-		keys = Object.keys(parameters.named);
-		for (i = 0; i < keys.length; i += 1) {
-			key = keys[i];
-			this.named[key] = parameters.named[key];
-		}
-				
-		this.indexed = this.indexed.concat(parameters.indexed);
-	};
-	
-	// TODO: Create super 'class' for Expr, Insert and Update to inherent the compile function.
-	
 	/**
-	 * Constructor for a SQL expression.
+	 * Constructor for the parent object for all SQL clauses.
 	 * 
 	 * @constructor
 	 */
-	function Expr() {
+	function Clause() {
 		this._tree = [];
 		this._params = {};
 	};
+	
+	/**
+	 * Gets the parameters.
+	 * 
+	 * @returns {Object} A literal with the keys as the named bind parameter.
+	 */
+	Clause.prototype.parameters = function() {
+		return this._params;
+	};
+	
+	/**
+	 * Appends a clause to the end of this clause.
+	 * 
+	 * @param {Clause} clause - A SQL clause. 
+	 */
+	Clause.prototype.append = function(clause) {
+		this._tree = this._tree.concat(clause._tree);
+		this.appendParams(clause._params);
+	};
+	
+	/**
+	 * Appends the parameters to this clause and its named parameters.
+	 * 
+	 * @param {Object} parameters - A literal with the keys as the named bind parameter.
+	 */
+	Clause.prototype.appendParams = function(parameters) {
+		var key;
+		
+		for (key in parameters) {
+			this._params[key] = parameters[key];
+		}
+	};
+	
+	/**
+	 * Converts to a SQL string ready for parameter binding and execution.
+	 * 
+	 * @returns {String} A SQL string.
+	 */
+	Clause.prototype.compile = function() {
+		var sql = '',
+			i;
+		
+		for (i = 0; i < this._tree.length; i += 1) {
+			if (this._tree[i] instanceof Expr) {
+				sql += this._tree[i].compile();
+				this.appendParams(this._tree[i].parameters());
+			} else {
+				sql += this._tree[i];
+			}
+		}
+		
+		return sql;
+	};
+	
+	/**
+	 * Constructor for a SQL expression clause.
+	 * 
+	 * @constructor
+	 */
+	function Expr() {};
+	
+	Expr.prototype = new Clause();
 	
 	/**
 	 * Begins a group expression. 
 	 * 
 	 * This pushes a '(' onto the tree.
 	 * 
-	 * @returns {Expr} This expression.
+	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.begin = function() {
-		// TODO: Change '(' to a constant.
 		this._tree.push("(");
 		
 		return this;
@@ -694,10 +734,9 @@ var Egon = {};
 	 * 
 	 * This pushes a ')' onto the tree.
 	 * 
-	 * @returns {Expr} This expression.
+	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.end = function() {
-		// TODO: Change ')' to a constant.
 		this._tree.push(")");
 		
 		return this;
@@ -707,10 +746,9 @@ var Egon = {};
 	 * Adds a literal value to this expression.
 	 * 
 	 * @param {String|Number} literal - The literal value. 
-	 * @returns {Expr} This expression.
+	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.value = function(literal) {
-		
 		var paramsCount = Object.keys(this._params).length,
 			repeat = paramsCount / 26,
 			n = paramsCount % 26,
@@ -732,7 +770,7 @@ var Egon = {};
 	/**
 	 * Adds the '==' operator to this expression.
 	 * 
-	 * @returns {Expr} This expression.
+	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.equals = function() {
 		this._tree.push(" " + Egon.OPERATORS.EQUALS + " ");
@@ -743,10 +781,10 @@ var Egon = {};
 	/**
 	 * Adds the '!=' operator to this expression.
 	 * 
-	 * @returns {Expr} This expression.
+	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.notEquals = function() {
-		this._tree.push(' ' + Egon.OPERATORS.NOT_EQUALS + ' ');
+		this._tree.push(" " + Egon.OPERATORS.NOT_EQUALS + " ");
 		
 		return this;
 	};
@@ -754,10 +792,10 @@ var Egon = {};
 	/**
 	 * Adds the '<' operator to this expression.
 	 * 
-	 * @returns {Expr} This expression.
+	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.lessThan = function() {
-		this._tree.push(' ' + Egon.OPERATORS.LESS_THAN + ' ');
+		this._tree.push(" " + Egon.OPERATORS.LESS_THAN + " ");
 		
 		return this;
 	};
@@ -765,10 +803,10 @@ var Egon = {};
 	/**
 	 * Adds the '>' operator to this expression.
 	 * 
-	 * @returns {Expr} This expression.
+	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.greaterThan = function() {
-		this._tree.push(' ' + Egon.OPERATORS.GREATER_THAN + ' ');
+		this._tree.push(" " + Egon.OPERATORS.GREATER_THAN + " ");
 		
 		return this;
 	};
@@ -776,10 +814,10 @@ var Egon = {};
 	/**
 	 * Adds the '<=' operator to this expression.
 	 * 
-	 * @returns {Expr} This expression.
+	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.lessThanEquals = function() {
-		this._tree.push(' ' + Egon.OPERATORS.LESS_THAN_EQUALS + ' ');
+		this._tree.push(" " + Egon.OPERATORS.LESS_THAN_EQUALS + " ");
 		
 		return this;
 	};
@@ -787,10 +825,10 @@ var Egon = {};
 	/**
 	 * Adds the '>=' operator to this expression.
 	 * 
-	 * @returns {Expr} This expression.
+	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.greaterThanEquals = function() {
-		this._tree.push(' ' + Egon.OPERATORS.GREATER_THAN_EQUALS + ' ');
+		this._tree.push(" " + Egon.OPERATORS.GREATER_THAN_EQUALS + " ");
 		
 		return this;
 	};
@@ -800,10 +838,10 @@ var Egon = {};
 	/**
 	 * Adds the 'AND' operator to this expression.
 	 * 
-	 * @returns {Expr} This expression.
+	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.and = function() {
-		this._tree.push(' ' + Egon.OPERATORS.AND + ' ');
+		this._tree.push(" " + Egon.OPERATORS.AND + " ");
 		
 		return this;
 	};
@@ -811,10 +849,10 @@ var Egon = {};
 	/**
 	 * Adds the 'OR' operator to this expression.
 	 * 
-	 * @returns {Expr} This expression.
+	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.or = function() {
-		this._tree.push(' ' + Egon.OPERATOR.OR + ' ');
+		this._tree.push(" " + Egon.OPERATOR.OR + " ");
 		
 		return this;
 	};
@@ -822,7 +860,7 @@ var Egon = {};
 	/**
 	 * Adds the 'NOT' operator to this expression.
 	 * 
-	 * @returns {Expr} This expression.
+	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.not = function() {
 		this._tree.push(Egon.OPERATORS.NOT);
@@ -833,8 +871,8 @@ var Egon = {};
 	/**
 	 * Adds a column name to this expression.
 	 * 
-	 * @param {String} columnName - The column name.
-	 * @returns {Expr} This expression.
+	 * @param {String} columnName - A column name.
+	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.column = function(columnName) {
 		this._tree.push(columnName);
@@ -843,42 +881,15 @@ var Egon = {};
 	};
 	
 	/**
-	 * Creates a SQL string ready for binding parameters and execution.
+	 * Adds an expression to this expression.
 	 * 
-	 * @returns {String} The SQL string.
+	 * @param {Expr} expr - An SQL expression clause.
+	 * @returns {Expr} This SQL expression clause.
 	 */
-	Expr.prototype.compile = function() {
-		var sql = '',
-			that = this,
-			i;
-	
-		var appendParams = function(parameters) {
-			var key;
-			
-			for (key in parameters) {
-				that._params[key] = parameters[key];
-			}
-		};
+	Expr.prototype.expr = function(expr) {
+		this._tree.push(expr);
 		
-		for (i = 0; i < this._tree.length; i += 1) {
-			if (this._tree[i] instanceof Expr) {
-				sql += this._tree[i].compile();
-				appendParams(this._tree[i].parameters());
-			} else {
-				sql += this._tree[i];
-			}
-		}
-		
-		return sql;
-	};
-	
-	/**
-	 * Gets the parameters for this SQL expression.
-	 * 
-	 * @returns {Object} An object literal with the keys as the bind parameter key with the values to be substituted in the SQL statement.
-	 */
-	Expr.prototype.parameters = function() {
-		return this._params;
+		return this;
 	};
 	
 	/**
@@ -886,18 +897,17 @@ var Egon = {};
 	 * 
 	 * @constructor
 	 */
-	function Insert() {
-		this._tree = [];
-		this._params = {};
-		
+	function Insert() {		
 		this._tree.push("INSERT");
 	};
+	
+	Insert.prototype = new Clause();
 	
 	/**
 	 * Adds the 'INTO' clause to this 'INSERT' SQL statement.
 	 * 
 	 * @param {String} tableName - The table name.
-	 * @returns {Insert} This 'INSERT' SQL statement.
+	 * @returns {Insert} This SQL 'INSERT' clause.
 	 */
 	Insert.prototype.into = function(tableName) {
 		this._tree.push(" INTO ");
@@ -962,58 +972,18 @@ var Egon = {};
 	};
 	
 	/**
-	 * Creates a SQL string ready for binding parameters and execution.
-	 * 
-	 * @returns {String} A SQL string.
-	 */
-	Insert.prototype.compile = function() {
-		var sql = '',
-			that = this,
-			i;
-	
-		var appendParams = function(parameters) {
-			var key;
-			
-			for (key in parameters) {
-				that._params[key] = parameters[key];
-			}
-		};
-		
-		for (i = 0; i < this._tree.length; i += 1) {
-			if (this._tree[i] instanceof Expr) {
-				sql += this._tree[i].compile();
-				appendParams(this._tree[i].parameters());
-			} else {
-				sql += this._tree[i];
-			}
-		}
-		
-		return sql;
-	};
-	
-	/**
-	 * Gets the parameters for this 'INSERT' SQL statement.
-	 * 
-	 * @returns {Object} An object literal with the keys as the bind parameter key with the values to be substituted in the SQL statement.
-	 */
-	Insert.prototype.parameters = function() {
-		return this._params;
-	};
-	
-	/**
 	 * Constructor for the 'UPDATE' clause.
 	 * 
 	 * @constructor
 	 * 
-	 * @param {String} tableName - The name of the table to update.
+	 * @param {String} tableName - The name of a table to update.
 	 */
-	function Update(tableName) {
-		this._tree = [];
-		this._params = {};
-		
+	function Update(tableName) {		
 		this._tree.push("UPDATE");
 		this._tree.push(" " + tableName);
 	};
+	
+	Update.prototype = new Clause();
 	
 	/**
 	 * Adds the 'SET' clauses to this 'UPDATE' SQL clause.
@@ -1052,7 +1022,7 @@ var Egon = {};
 	/**
 	 * Adds a 'WHERE' clause to this 'UPDATE' SQL clause.
 	 * 
-	 * @param {Expr} expr - A SQL expression.
+	 * @param {Expr} expr - A SQL expression clause.
 	 * @returns {Update} This SQL clause.
 	 */
 	Update.prototype.where = function(expr) {
@@ -1060,45 +1030,6 @@ var Egon = {};
 		this._tree.push(expr);
 		
 		return this;
-	};
-	
-	/**
-	 * Creates a SQL string ready for binding parameters and execution.
-	 * 
-	 * @returns {String} A SQL string.
-	 */
-	Update.prototype.compile = function() {
-		var sql = '',
-			that = this,
-			i;
-
-		var appendParams = function(parameters) {
-			var key;
-			
-			for (key in parameters) {
-				that._params[key] = parameters[key];
-			}
-		};
-		
-		for (i = 0; i < this._tree.length; i += 1) {
-			if (this._tree[i] instanceof Expr) {
-				sql += this._tree[i].compile();
-				appendParams(this._tree[i].parameters());
-			} else {
-				sql += this._tree[i];
-			}
-		}
-		
-		return sql;
-	};
-	
-	/**
-	 * Gets the parameters for this 'UPDATE' SQL statement.
-	 * 
-	 * @returns {Object} An object literal with the keys as the bind parameter key with the values to be substituted in the SQL statement.
-	 */
-	Update.prototype.parameters = function() {
-		return this._params;
 	};
 	
 	// May want to change this to MappedClass as a name for the constructor
