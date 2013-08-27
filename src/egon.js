@@ -192,29 +192,35 @@ var egon = {};
 	 * @param {mozIStorageStatementCallback} [callback] - A callback.
 	 */
 	// TODO: Update documentation with description of callback.
-	egon.execute = function(egonStmt, callback) {
-		var exprParams = egonStmt.parameters(),
-			stmt,
+	egon.execute = function(clause, callback) {
+		var clauseParams = clause.parameters(),
+			compiledClause = clause.compile(),
 			stmtParams,
+			bindParams,
+			stmt,
 			key,
-			bindParam,
 			i;
 		
-		dump(egonStmt.compile() + "\n");
-			
-		stmt = dbConn.createAsyncStatement(egonStmt.compile());
-		stmtParams = stmt.newBindingParamsArray();
-		bindParam = stmtParams.newBindingParams();
+		dump(compiledClause + "\n");
 		
-		for (key in exprParams.named) {
-			bindParam.bindByName(key, exprParams.named[key]);
+		// TODO: Figure out binding parameters.
+		// TODO: Convert parameters to a singleton for all expressions that empties on compile.
+		// TODO: Convert 'compile' to 'sql' and make 'compile' an Egon level function.
+		stmt = dbConn.createAsyncStatement(compiledClause);
+		stmtParams = stmt.newBindingParamsArray();		
+		
+		for (key in clauseParams.named) {
+			bindParams = stmtParams.newBindingParams();
+			bindParams.bindByName(key, clauseParams.named[key]);
+			stmtParams.addParams(bindParams);
 		}
 		
-		for (i = 0; i < exprParams.indexed.length; i += 1) {
-			bindParam.bindByIndex(i, exprParams.indexed[i]);
+		for (i = 0; i < clauseParams.indexed.length; i += 1) {
+			bindParams = stmtParams.newBindingParams();
+			bindParams.bindByIndex(i, clauseParams.indexed[i]);
+			stmtParams.addParams(bindParams);
 		}
 		
-		stmtParams.addParams(bindParam);
 		stmt.bindParameters(stmtParams);
 		
 		stmt.executeAsync(callback);		
@@ -645,7 +651,7 @@ var egon = {};
 	egon.ForeignKey = ForeignKey;
 	
 	function Parameters() {
-		this.index = [];
+		this.indexed = [];
 		this.named = {};
 	};
 	
@@ -659,8 +665,8 @@ var egon = {};
 			key = keys[i];
 			this.named[key] = parameters.named[key];
 		}
-		
-		this.indexed.concat(parameters.indexed);
+				
+		this.indexed = this.indexed.concat(parameters.indexed);
 	};
 	
 	// TODO: Create super 'class' for Expr, Insert and Update to inherent the compile function.
@@ -683,7 +689,8 @@ var egon = {};
 	 * @returns {Expr} This expression.
 	 */
 	Expr.prototype.begin = function() {
-		this._tree.push('(');
+		// TODO: Change '(' to a constant.
+		this._tree.push("(");
 		
 		return this;
 	};
@@ -696,7 +703,8 @@ var egon = {};
 	 * @returns {Expr} This expression.
 	 */
 	Expr.prototype.end = function() {
-		this._tree.push(')');
+		// TODO: Change ')' to a constant.
+		this._tree.push(")");
 		
 		return this;
 	};
@@ -707,10 +715,11 @@ var egon = {};
 	 * @param {String|Number} literal - The literal value. 
 	 * @returns {Expr} This expression.
 	 */
-	Expr.prototype.value = function(literal) {		
-		this._tree.push("?" + (this._params.indexed.length + 1));
+	Expr.prototype.value = function(literal) {
+		// TODO: Change '?' to a constant.
+		this._tree.push("?1");
 		this._params.indexed.push(literal);
-				
+		
 		return this;
 	};
 	
@@ -720,7 +729,7 @@ var egon = {};
 	 * @returns {Expr} This expression.
 	 */
 	Expr.prototype.equals = function() {
-		this._tree.push(' ' + egon.OPERATORS.EQUALS + ' ');
+		this._tree.push(" " + egon.OPERATORS.EQUALS + " ");
 		
 		return this;
 	};
@@ -968,7 +977,7 @@ var egon = {};
 	};
 	
 	/**
-	 * Constructor for the 'UPDATE' SQL statement.
+	 * Constructor for the 'UPDATE' clause.
 	 * 
 	 * @constructor
 	 * 
@@ -983,12 +992,12 @@ var egon = {};
 	};
 	
 	/**
-	 * Adds the 'SET' and column clauses to this 'UPDATE' SQL statement.
+	 * Adds the 'SET' clauses to this 'UPDATE' SQL clause.
 	 * 
 	 * The column names will be used as the named bind parameters.
 	 * 
 	 * @param {Object} columns - An object literal with the keys as the column names and the values as the values to update. 
-	 * @returns {Update} This SQL statement.
+	 * @returns {Update} This SQL clause.
 	 */
 	Update.prototype.set = function(columns) {
 		var keys = Object.keys(columns),
@@ -1017,10 +1026,10 @@ var egon = {};
 	};
 	
 	/**
-	 * Adds a 'WHERE' clause to this 'UPDATE' SQL statement.
+	 * Adds a 'WHERE' clause to this 'UPDATE' SQL clause.
 	 * 
 	 * @param {Expr} expr - A SQL expression.
-	 * @returns {Update} This SQL statement.
+	 * @returns {Update} This SQL clause.
 	 */
 	Update.prototype.where = function(expr) {
 		this._tree.push(" WHERE ");
@@ -1037,7 +1046,7 @@ var egon = {};
 	Update.prototype.compile = function() {
 		var sql = '',
 			i;
-	
+			
 		for (i = 0; i < this._tree.length; i += 1) {
 			if (this._tree[i] instanceof Expr) {
 				sql += this._tree[i].compile();
@@ -1046,7 +1055,7 @@ var egon = {};
 				sql += this._tree[i];
 			}
 		}
-				
+		
 		return sql;
 	};
 	

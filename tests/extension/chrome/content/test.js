@@ -57,22 +57,24 @@ itemsTable.dateAdded = new egon.Column('date_added', egon.TYPES.DATE, {notNull: 
 
 egon.createAll();
 
-egon.execute(jobOrderNumbersTable.insert({
-	alias: 'test job order number', 
-	accountNumber: '11-1111-1-1-1', 
-	description: 'Test description'}));
-egon.execute(jobOrderNumbersTable.update({
-	alias: 'updated job order number',
-	accountNumber: '22-2222-2-2-2',
-	description: 'updated description',
-}).where(jobOrderNumbersTable.id.equals(1)), {
+var debugCallback = {
 	handleResult: function(aResultSet) {},
 
 	handleError: function(aError) {
 	    dump("Error: " + aError.message + "\n");
 	},
-
+		
 	handleCompletion: function(aReason) {
 		dump("Completed!\n");
 	}
-});
+};
+
+egon.execute(jobOrderNumbersTable.insert({
+	alias: 'test job order number', 
+	accountNumber: '11-1111-1-1-1', 
+	description: 'Test description'}), debugCallback);
+egon.execute(jobOrderNumbersTable.update({
+	alias: 'updated job order number',
+	accountNumber: '22-2222-2-2-2',
+	description: 'updated description',
+}).where(jobOrderNumbersTable.id.equals(1)), debugCallback);
