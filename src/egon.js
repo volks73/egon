@@ -353,10 +353,10 @@ var Egon = {};
 	};
 
 	/**
-	 * Creates an {Insert} SQL statement to insert values into this table.
+	 * Creates an {Insert} SQL clause to insert values into this table.
 	 * 
 	 * @param {Object} values - An object literal with the keys as the property name for this table pointing to the columns.
-	 * @returns {Insert} An 'INSERT' SQL statement.
+	 * @returns {Insert} An 'INSERT' SQL clause.
 	 */
 	Table.prototype.insert = function(values) {
 		var insert = new Insert(),
@@ -376,10 +376,10 @@ var Egon = {};
 	};
 	
 	/**
-	 * Creates an {Update} SQL statement to update values in this table.
+	 * Creates an {Update} SQL clause to update values in this table.
 	 * 
 	 * @param {Object} values - An object literal with the keys as the property name for this table pointing to the columns.
-	 * @returns {Update} An Update SQL expression object.
+	 * @returns {Update} A 'UPDATE' SQL clause.
 	 */
 	Table.prototype.update = function(values) {
 		var update = new Update(this._name),
@@ -394,6 +394,19 @@ var Egon = {};
 		update.set(columns);
 		
 		return update;
+	};
+	
+	/**
+	 * Creates a {Delete} SQL clause to delete values from this table.
+	 * 
+	 * @returns {Delete} A 'DELETE' SQL clause.
+	 */
+	Table.prototype.remove = function() {
+		var _delete = new Delete();
+		
+		_delete.from(this._name);
+		
+		return _delete;
 	};
 	
 	Egon.Table = Table;
