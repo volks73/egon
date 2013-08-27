@@ -52,6 +52,7 @@ var Egon = {};
 	 * A mapping of known JavaScript variable types to SQLite column types.
 	 * @typedef {Object} TypeConstant
 	 * @readonly
+	 * @constant
 	 */
 	Egon.TYPES = {
 		NULL: {display: 'null', dbType: 'NULL', jsType: null},
@@ -67,6 +68,7 @@ var Egon = {};
 	 * 
 	 * @typedef {String} OptionsConstant
 	 * @readonly
+	 * @constant
 	 */
 	Egon.OPTIONS = {
 		PRIMARY_KEY: 'primaryKey',
@@ -83,6 +85,7 @@ var Egon = {};
 	 * 
 	 * @typedef {String} CollateConstant
 	 * @readonly
+	 * @constant
 	 */
 	Egon.COLLATE = {
 		BINARY: 'BINARY',
@@ -95,6 +98,7 @@ var Egon = {};
 	 * 
 	 * @typedef {String} ConflictConstant
 	 * @readonly
+	 * @constant
 	 */
 	Egon.CONFLICT = {
 		ROLLBACK: 'ROLLBACK',
@@ -109,6 +113,7 @@ var Egon = {};
 	 * 
 	 * @typedef {String} ActionsConstant
 	 * @readonly
+	 * @constant
 	 */
 	Egon.ACTIONS = {
 		SET_NULL: 'SET NULL',
@@ -123,6 +128,7 @@ var Egon = {};
 	 * 
 	 * @typedef {String} DefersConstant
 	 * @readonly
+	 * @constant
 	 */
 	Egon.DEFERS = {
 		DEFERRED: 'INITIALLY DEFERRED',
@@ -134,6 +140,7 @@ var Egon = {};
 	 * 
 	 * @typedef {String} OperatorsConstant.
 	 * @readonly
+	 * @constant
 	 */
 	Egon.OPERATORS = {
 		EQUALS: '=',
@@ -1026,6 +1033,43 @@ var Egon = {};
 	 * @returns {Update} This SQL clause.
 	 */
 	Update.prototype.where = function(expr) {
+		this._tree.push(" WHERE ");
+		this._tree.push(expr);
+		
+		return this;
+	};
+	
+	/**
+	 * The constructor for the 'DELETE' SQL clause.
+	 * 
+	 * @constructor
+	 */
+	function Delete() {
+		this._tree.push("DELETE");
+	};
+	
+	Delete.prototype = new Clause();
+	
+	/**
+	 * Adds the 'FROM' clause to this 'DELETE' SQL clause along with the table name.
+	 * 
+	 * @param {String} tableName - A table name.
+	 * @returns {Delete} This 'DELETE' SQL clause.
+	 */
+	Delete.prototype.from = function(tableName) {
+		this._tree.push(" FROM ");
+		this._tree.push(tableName);
+		
+		return this;
+	};
+	
+	/**
+	 * Adds the 'WHERE' clause to this 'DELETE' SQL clause.
+	 * 
+	 * @param {Expr} expr - A SQL expression clause.
+	 * @returns {Delete} This 'DELETE' SQL clause.
+	 */
+	Delete.prototype.where = function(expr) {
 		this._tree.push(" WHERE ");
 		this._tree.push(expr);
 		
