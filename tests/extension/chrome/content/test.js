@@ -78,3 +78,4 @@ Egon.execute(jobOrderNumbersTable.update({
 	accountNumber: '22-2222-2-2-2',
 	description: 'updated description',
 }).where(jobOrderNumbersTable.id.equals(1)), debugCallback);
+Egon.execute(jobOrderNumbersTable.remove().where(jobOrderNumbersTable.id.equals(1)));

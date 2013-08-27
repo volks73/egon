@@ -716,7 +716,7 @@ var Egon = {};
 			i;
 		
 		for (i = 0; i < this._tree.length; i += 1) {
-			if (this._tree[i] instanceof Expr) {
+			if (this._tree[i] instanceof Clause) {
 				sql += this._tree[i].compile();
 				this.appendParams(this._tree[i].parameters());
 			} else {
@@ -732,7 +732,10 @@ var Egon = {};
 	 * 
 	 * @constructor
 	 */
-	function Expr() {};
+	function Expr() {
+		this._tree = [];
+		this._params = {};
+	};
 	
 	Expr.prototype = new Clause();
 	
@@ -777,7 +780,7 @@ var Egon = {};
 		
 		param += String.fromCharCode(65 + n);
 			
-		for (i = 0; i < repeat; i += 1) {
+		for (i = 1; i < repeat; i += 1) {
 			param += String.fromCharCode(65 + n);	 
 		}
 		
@@ -917,7 +920,10 @@ var Egon = {};
 	 * 
 	 * @constructor
 	 */
-	function Insert() {		
+	function Insert() {
+		this._tree = [];
+		this._params = {};
+		
 		this._tree.push("INSERT");
 	};
 	
@@ -998,7 +1004,10 @@ var Egon = {};
 	 * 
 	 * @param {String} tableName - The name of a table to update.
 	 */
-	function Update(tableName) {		
+	function Update(tableName) {
+		this._tree = [];
+		this._params = {};
+		
 		this._tree.push("UPDATE");
 		this._tree.push(" " + tableName);
 	};
