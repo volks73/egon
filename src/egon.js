@@ -838,10 +838,12 @@ var Egon = {};
 	Expr.prototype.equals = function(rightOperand) {
 		this._tree.push(" " + Egon.OPERATORS.EQUALS + " ");
 		
-		if (rightOperand instanceof Expr) {
-			this._tree.push(rightOperand);
-		} else {
-			this._tree.push(new Param(rightOperand));
+		if (rightOperand !== undefined) {
+			if (rightOperand instanceof Expr) {
+				this._tree.push(rightOperand);
+			} else {
+				this._tree.push(new Param(rightOperand));
+			}
 		}
 		
 		return this;
@@ -850,16 +852,18 @@ var Egon = {};
 	/**
 	 * Adds the '!=' operator to this expression.
 	 * 
-	 * @param {Expr|String|Number} rightOperand - The right operand to the binary operator.
+	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
 	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.notEquals = function(rightOperand) {
 		this._tree.push(" " + Egon.OPERATORS.NOT_EQUALS + " ");
 		
-		if (rightOperand instanceof Expr) {
-			this._tree.push(rightOperand);
-		} else {
-			this._tree.push(new Param(rightOperand));
+		if (rightOperand !== undefined) {
+			if (rightOperand instanceof Expr) {
+				this._tree.push(rightOperand);
+			} else {
+				this._tree.push(new Param(rightOperand));
+			}
 		}
 		
 		return this;
@@ -868,16 +872,18 @@ var Egon = {};
 	/**
 	 * Adds the '<' operator to this expression.
 	 * 
-	 * @param {Expr|String|Number} rightOperand - The right operand to the binary operator.
+	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
 	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.lessThan = function(rightOperand) {
 		this._tree.push(" " + Egon.OPERATORS.LESS_THAN + " ");
 		
-		if (rightOperand instanceof Expr) {
-			this._tree.push(rightOperand);
-		} else {
-			this._tree.push(new Param(rightOperand));
+		if (rightOperand !== undefined) {
+			if (rightOperand instanceof Expr) {
+				this._tree.push(rightOperand);
+			} else {
+				this._tree.push(new Param(rightOperand));
+			}
 		}
 		
 		return this;
@@ -886,16 +892,18 @@ var Egon = {};
 	/**
 	 * Adds the '>' operator to this expression.
 	 * 
-	 * @param {Expr|String|Number} rightOperand - The right operand to the binary operator.
+	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
 	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.greaterThan = function(rightOperand) {
 		this._tree.push(" " + Egon.OPERATORS.GREATER_THAN + " ");
 		
-		if (rightOperand instanceof Expr) {
-			this._tree.push(rightOperand);
-		} else {
-			this._tree.push(new Param(rightOperand));
+		if (rightOperand !== undefined) {
+			if (rightOperand instanceof Expr) {
+				this._tree.push(rightOperand);
+			} else {
+				this._tree.push(new Param(rightOperand));
+			}
 		}
 		
 		return this;
@@ -904,16 +912,18 @@ var Egon = {};
 	/**
 	 * Adds the '<=' operator to this expression.
 	 * 
-	 * @param {Expr|String|Number} rightOperand - The right operand to the binary operator.
+	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
 	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.lessThanEquals = function(rightOperand) {
 		this._tree.push(" " + Egon.OPERATORS.LESS_THAN_EQUALS + " ");
 		
-		if (rightOperand instanceof Expr) {
-			this._tree.push(rightOperand);
-		} else {
-			this._tree.push(new Param(rightOperand));
+		if (rightOperand !== undefined) {
+			if (rightOperand instanceof Expr) {
+				this._tree.push(rightOperand);
+			} else {
+				this._tree.push(new Param(rightOperand));
+			}
 		}
 		
 		return this;
@@ -922,16 +932,18 @@ var Egon = {};
 	/**
 	 * Adds the '>=' operator to this expression.
 	 * 
-	 * @param {Expr|String|Number} rightOperand - The right operand to the binary operator.
+	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
 	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.greaterThanEquals = function(rightOperand) {
 		this._tree.push(" " + Egon.OPERATORS.GREATER_THAN_EQUALS + " ");
 		
-		if (rightOperand instanceof Expr) {
-			this._tree.push(rightOperand);
-		} else {
-			this._tree.push(new Param(rightOperand));
+		if (rightOperand !== undefined) {
+			if (rightOperand instanceof Expr) {
+				this._tree.push(rightOperand);
+			} else {
+				this._tree.push(new Param(rightOperand));
+			}
 		}
 		
 		return this;
@@ -942,10 +954,19 @@ var Egon = {};
 	/**
 	 * Adds the 'AND' operator to this expression.
 	 * 
+	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
 	 * @returns {Expr} This SQL expression clause.
 	 */
-	Expr.prototype.and = function() {
+	Expr.prototype.and = function(rightOperand) {
 		this._tree.push(" " + Egon.OPERATORS.AND + " ");
+		
+		if (rightOperand !== undefined) {
+			if (rightOperand instanceof Expr) {
+				this._tree.push(rightOperand);
+			} else {
+				this._tree.push(new Param(rightOperand));
+			}	
+		}
 		
 		return this;
 	};
@@ -953,10 +974,19 @@ var Egon = {};
 	/**
 	 * Adds the 'OR' operator to this expression.
 	 * 
+	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
 	 * @returns {Expr} This SQL expression clause.
 	 */
-	Expr.prototype.or = function() {
+	Expr.prototype.or = function(rightOperand) {
 		this._tree.push(" " + Egon.OPERATOR.OR + " ");
+		
+		if (rightOperand !== undefined) {
+			if (rightOperand instanceof Expr) {
+				this._tree.push(rightOperand);
+			} else {
+				this._tree.push(new Param(rightOperand));
+			}	
+		}
 		
 		return this;
 	};
@@ -964,17 +994,20 @@ var Egon = {};
 	/**
 	 * Adds the 'NOT' operator to this expression.
 	 * 
+	 * @param {Expr|String|Number} [operand] - The operand to the binary operator.
 	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.not = function(operand) {
 		this._tree.push(" " + Egon.OPERATORS.NOT + " ");
 		
-		if (operand instanceof Expr) {
-			this._tree.push(operand);
-		} else {
-			this._tree.push(new Param(operand));
+		if (operand !== undefined) {
+			if (operand instanceof Expr) {
+				this._tree.push(operand);
+			} else {
+				this._tree.push(new Param(operand));
+			}	
 		}
-		
+
 		return this;
 	};
 	
