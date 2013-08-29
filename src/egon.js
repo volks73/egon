@@ -190,38 +190,33 @@ var Egon = {};
 			}
 		}
 	};
-	
+		
 	/**
 	 * Executes a SQL expression. Calls the 'compile' function of the expression,
 	 * binds the parameters, and asynchronously executes.
 	 * 
-	 * @param {Insert} expression - A SQL expression.
+	 * @param {Clause} clause - A SQL clause.
 	 * @param {mozIStorageStatementCallback} [callback] - A callback.
 	 */
 	// TODO: Update documentation with description of callback.
 	Egon.execute = function(clause, callback) {
-		var clauseParams = clause.parameters(),
-			compiledClause = clause.compile(),
+		var compiled = clause.compile(),
 			stmtParams,
-			bindParams,
+			bindings,
 			stmt,
-			key,
-			i;
+			key;
+			
+		dump(compiled + "\n");
 		
-		dump(compiledClause + "\n");
-		
-		// TODO: Convert parameters to a singleton for all expressions that empties on compile.
-		// TODO: Convert 'compile' to 'sql' and make 'compile' an Egon level function.
-		
-		stmt = dbConn.createAsyncStatement(compiledClause);
+		stmt = dbConn.createAsyncStatement(compiled.toString());
 		stmtParams = stmt.newBindingParamsArray();		
-		bindParams = stmtParams.newBindingParams();
+		bindings = stmtParams.newBindingParams();
 		
-		for (key in clauseParams) {
-			bindParams.bindByName(key, clauseParams[key]);
+		for (key in compiled.params) {
+			bindings.bindByName(key, compiled.params[key]);
 		}
 		
-		stmtParams.addParams(bindParams);
+		stmtParams.addParams(bindings);
 		stmt.bindParameters(stmtParams);
 		
 		stmt.executeAsync(callback);		
@@ -370,8 +365,6 @@ var Egon = {};
 		
 		insert.into(this._name).columns(columnNames).values(values);
 		
-		// TODO: Execute, or push the SQL statement into an array to executed upon 'commit'.
-		
 		return insert;
 	};
 	
@@ -480,7 +473,7 @@ var Egon = {};
 	Column.prototype.equals = function(value) {
 		var expr = new Expr();
 		
-		expr = expr.column(this.name).equals().value(value);
+		expr = expr.column(this.name).equals(value);
 		
 		return expr;
 	};
@@ -665,67 +658,139 @@ var Egon = {};
 	Egon.ForeignKey = ForeignKey;
 	
 	/**
+	 * Creates a bind parameter object.
+	 * 
+	 * A bind parameter has a key, or placeholder, and a value. The value replaces the placeholder 
+	 * whening binding the parameters to a SQL statement. This prevents SQL injection attacks because
+	 * the value is never executed as SQL.
+	 * 
+	 * If a key is not provided, then a numeric, or index, key is used.
+	 * 
+	 * @constructor
+	 * 
+	 * @param {Object} value - The literal value.
+	 * @param {String} [key] - The key, or placeholder, for the literal value that will be replaced on binding.
+	 */
+	function Param(value, key) {
+		this.value = value;
+		this.key = key;
+	};
+	
+	Param.prototype.toString = function() {
+		var str = "{";
+		
+		if (this.key !== undefined) {
+			str += this.key; 
+		}
+		else {
+			str += "?";
+		}
+		
+		return str + ": '" + this.value + "'}";
+	};
+	
+	/**
+	 * Constructor for a compiled object. This is a compiled clause.
+	 * 
+	 * @constructor
+	 * 
+	 * @param {String} sql - The SQL string compiled from a clause.
+	 * @param {Object} params - A literal with the properties as the keys for the named bind parameters and the property values as the binding values.
+	 */
+	function Compiled(sql, params) {
+		this._sql = sql;
+		this.params = params;
+	};
+	
+	Compiled.prototype.toString = function() {
+		return this._sql;
+	};
+	
+	
+	/**
 	 * Constructor for the parent object for all SQL clauses.
 	 * 
 	 * @constructor
 	 */
 	function Clause() {
 		this._tree = [];
-		this._params = {};
 	};
 	
 	/**
-	 * Gets the parameters.
+	 * Gets the full tree. The child clauses are added to this clause's tree.
 	 * 
-	 * @returns {Object} A literal with the keys as the named bind parameter.
+	 * @returns {Array} The full tree with child clauses.
 	 */
-	Clause.prototype.parameters = function() {
-		return this._params;
-	};
-	
-	/**
-	 * Appends a clause to the end of this clause.
-	 * 
-	 * @param {Clause} clause - A SQL clause. 
-	 */
-	Clause.prototype.append = function(clause) {
-		this._tree = this._tree.concat(clause._tree);
-		this.appendParams(clause._params);
-	};
-	
-	/**
-	 * Appends the parameters to this clause and its named parameters.
-	 * 
-	 * @param {Object} parameters - A literal with the keys as the named bind parameter.
-	 */
-	Clause.prototype.appendParams = function(parameters) {
-		var key;
-		
-		for (key in parameters) {
-			this._params[key] = parameters[key];
-		}
-	};
-	
-	/**
-	 * Converts to a SQL string ready for parameter binding and execution.
-	 * 
-	 * @returns {String} A SQL string.
-	 */
-	Clause.prototype.compile = function() {
-		var sql = '',
+	Clause.prototype.tree = function() {
+		var tree = [],
 			i;
 		
 		for (i = 0; i < this._tree.length; i += 1) {
 			if (this._tree[i] instanceof Clause) {
-				sql += this._tree[i].compile();
-				this.appendParams(this._tree[i].parameters());
-			} else {
-				sql += this._tree[i];
+				tree = tree.concat(this._tree[i].tree());
+			}
+			else {
+				tree.push(this._tree[i]);
 			}
 		}
 		
-		return sql;
+		return tree;
 	};
+	
+	/**
+	 * Compiles the clause ready for parameter binding and execution.
+	 * 
+	 * @returns {Compiled} A compiled object that contains the SQL string and the parameters for binding.
+	 */
+	Clause.prototype.compile = function() {
+		var sql = '',
+			tree = this.tree(),
+			params = {},
+			paramCount = 0,
+			node,
+			i;
+		
+		for (i = 0; i < tree.length; i += 1) {
+			node = tree[i];
+			if (node instanceof Param) {
+				if (!node.key) {
+					node.key = _generateParamKey(paramCount);
+					paramCount += 1;
+				}
+				
+				sql += ":" + node.key;
+				params[node.key] = node.value;
+			} else {
+				sql += node;
+			}
+		}
+		
+		return new Compiled(sql, params);
+	};
+	
+	/**
+	 * Generates a named parameter key based on the current number of parameters.
+	 * 
+	 * A named parameter is created using the following pattern: 'paramA', 'paramB', 
+	 * 'paramC', ... 'paramAA', 'paramBB', ... 'paramAAA' and so on.
+	 * 
+	 * @param {Integer} paramCount - The current number of parameters.
+	 */
+	function _generateParamKey(paramCount) {
+		var DEFAULT_PARAM = "param",
+			charCode = 65 + (paramCount % 26),
+			repeat = paramCount / 26,
+			suffix,
+			i;
+		
+		suffix = String.fromCharCode(charCode);
+		
+		for (i = 1; i < repeat; i += 1) {
+			suffix = String.fromCharCode(charCode);
+		}
+		
+		return DEFAULT_PARAM + suffix;
+	}
 	
 	/**
 	 * Constructor for a SQL expression clause.
@@ -734,7 +799,6 @@ var Egon = {};
 	 */
 	function Expr() {
 		this._tree = [];
-		this._params = {};
 	};
 	
 	Expr.prototype = new Clause();
@@ -766,37 +830,19 @@ var Egon = {};
 	};
 	
 	/**
-	 * Adds a literal value to this expression.
+	 * Adds the '=' operator to this expression.
 	 * 
-	 * @param {String|Number} literal - The literal value. 
+	 * @param {Expr|String|Number} rightOperand - The right operand to the binary operator. 
 	 * @returns {Expr} This SQL expression clause.
 	 */
-	Expr.prototype.value = function(literal) {
-		var paramsCount = Object.keys(this._params).length,
-			repeat = paramsCount / 26,
-			n = paramsCount % 26,
-			param = "literal",
-			i;
-		
-		param += String.fromCharCode(65 + n);
-			
-		for (i = 1; i < repeat; i += 1) {
-			param += String.fromCharCode(65 + n);	 
-		}
-		
-		this._tree.push(":" + param);
-		this._params[param] = literal;
-		
-		return this;
-	};
-	
-	/**
-	 * Adds the '==' operator to this expression.
-	 * 
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.equals = function() {
+	Expr.prototype.equals = function(rightOperand) {
 		this._tree.push(" " + Egon.OPERATORS.EQUALS + " ");
+		
+		if (rightOperand instanceof Expr) {
+			this._tree.push(rightOperand);
+		} else {
+			this._tree.push(new Param(rightOperand));
+		}
 		
 		return this;
 	};
@@ -804,10 +850,17 @@ var Egon = {};
 	/**
 	 * Adds the '!=' operator to this expression.
 	 * 
+	 * @param {Expr|String|Number} rightOperand - The right operand to the binary operator.
 	 * @returns {Expr} This SQL expression clause.
 	 */
-	Expr.prototype.notEquals = function() {
+	Expr.prototype.notEquals = function(rightOperand) {
 		this._tree.push(" " + Egon.OPERATORS.NOT_EQUALS + " ");
+		
+		if (rightOperand instanceof Expr) {
+			this._tree.push(rightOperand);
+		} else {
+			this._tree.push(new Param(rightOperand));
+		}
 		
 		return this;
 	};
@@ -815,10 +868,17 @@ var Egon = {};
 	/**
 	 * Adds the '<' operator to this expression.
 	 * 
+	 * @param {Expr|String|Number} rightOperand - The right operand to the binary operator.
 	 * @returns {Expr} This SQL expression clause.
 	 */
-	Expr.prototype.lessThan = function() {
+	Expr.prototype.lessThan = function(rightOperand) {
 		this._tree.push(" " + Egon.OPERATORS.LESS_THAN + " ");
+		
+		if (rightOperand instanceof Expr) {
+			this._tree.push(rightOperand);
+		} else {
+			this._tree.push(new Param(rightOperand));
+		}
 		
 		return this;
 	};
@@ -826,10 +886,17 @@ var Egon = {};
 	/**
 	 * Adds the '>' operator to this expression.
 	 * 
+	 * @param {Expr|String|Number} rightOperand - The right operand to the binary operator.
 	 * @returns {Expr} This SQL expression clause.
 	 */
-	Expr.prototype.greaterThan = function() {
+	Expr.prototype.greaterThan = function(rightOperand) {
 		this._tree.push(" " + Egon.OPERATORS.GREATER_THAN + " ");
+		
+		if (rightOperand instanceof Expr) {
+			this._tree.push(rightOperand);
+		} else {
+			this._tree.push(new Param(rightOperand));
+		}
 		
 		return this;
 	};
@@ -837,10 +904,17 @@ var Egon = {};
 	/**
 	 * Adds the '<=' operator to this expression.
 	 * 
+	 * @param {Expr|String|Number} rightOperand - The right operand to the binary operator.
 	 * @returns {Expr} This SQL expression clause.
 	 */
-	Expr.prototype.lessThanEquals = function() {
+	Expr.prototype.lessThanEquals = function(rightOperand) {
 		this._tree.push(" " + Egon.OPERATORS.LESS_THAN_EQUALS + " ");
+		
+		if (rightOperand instanceof Expr) {
+			this._tree.push(rightOperand);
+		} else {
+			this._tree.push(new Param(rightOperand));
+		}
 		
 		return this;
 	};
@@ -848,10 +922,17 @@ var Egon = {};
 	/**
 	 * Adds the '>=' operator to this expression.
 	 * 
+	 * @param {Expr|String|Number} rightOperand - The right operand to the binary operator.
 	 * @returns {Expr} This SQL expression clause.
 	 */
-	Expr.prototype.greaterThanEquals = function() {
+	Expr.prototype.greaterThanEquals = function(rightOperand) {
 		this._tree.push(" " + Egon.OPERATORS.GREATER_THAN_EQUALS + " ");
+		
+		if (rightOperand instanceof Expr) {
+			this._tree.push(rightOperand);
+		} else {
+			this._tree.push(new Param(rightOperand));
+		}
 		
 		return this;
 	};
@@ -885,8 +966,14 @@ var Egon = {};
 	 * 
 	 * @returns {Expr} This SQL expression clause.
 	 */
-	Expr.prototype.not = function() {
-		this._tree.push(Egon.OPERATORS.NOT);
+	Expr.prototype.not = function(operand) {
+		this._tree.push(" " + Egon.OPERATORS.NOT + " ");
+		
+		if (operand instanceof Expr) {
+			this._tree.push(operand);
+		} else {
+			this._tree.push(new Param(operand));
+		}
 		
 		return this;
 	};
@@ -922,8 +1009,6 @@ var Egon = {};
 	 */
 	function Insert() {
 		this._tree = [];
-		this._params = {};
-		
 		this._tree.push("INSERT");
 	};
 	
@@ -955,10 +1040,12 @@ var Egon = {};
 		this._tree.push(" (");
 				
 		for (i = 0; i < stopCount; i += 1) {
-			this._tree.push(columnNames[i] + ", ");
+			this._tree.push(columnNames[i]);
+			this._tree.push(", ");
 		}
 		
-		this._tree.push(columnNames[i] + ")");
+		this._tree.push(columnNames[i]);
+		this._tree.push(")");
 		
 		return this;
 	};
@@ -984,14 +1071,12 @@ var Egon = {};
 			
 		for (i = 0; i < count; i += 1) {
 			key = keys[i];
-			this._tree.push(":" + key);
+			this._tree.push(new Param(values[key], key));
 			this._tree.push(", ");
-			this._params[key] = values[key];
 		}
 			
 		key = keys[i];
-		this._tree.push(":" + key);
-		this._params[key] = values[key];
+		this._tree.push(new Param(values[key], key));
 		this._tree.push(")");
 		
 		return this;
@@ -1006,8 +1091,6 @@ var Egon = {};
 	 */
 	function Update(tableName) {
 		this._tree = [];
-		this._params = {};
-		
 		this._tree.push("UPDATE");
 		this._tree.push(" " + tableName);
 	};
@@ -1034,16 +1117,14 @@ var Egon = {};
 			columnName = keys[i];
 			this._tree.push(columnName);
 			this._tree.push(" = ");
-			this._tree.push(":" + columnName);
+			this._tree.push(new Param(columns[columnName], columnName));
 			this._tree.push(", ");
-			this._params[columnName] = columns[columnName];
 		}
 		
 		columnName = keys[i];
 		this._tree.push(columnName);
 		this._tree.push(" = ");
-		this._tree.push(":" + columnName);
-		this._params[columnName] = columns[columnName];
+		this._tree.push(new Param(columns[columnName], columnName));
 		
 		return this;
 	};
