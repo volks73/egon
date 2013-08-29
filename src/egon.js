@@ -185,7 +185,7 @@ var Egon = {};
 			if (metadata.hasOwnProperty(key)) {
 				// TODO: Change dbConn to universal interface. Right now it uses the Mozilla-specific Storage interface to 
 				// interact with a SQLite database. This should be abstracted to be used for any database in any environment.
-				stmt = dbConn.createAsyncStatement(metadata[key].sql());
+				stmt = dbConn.createAsyncStatement(metadata[key].toString());
 				stmt.executeAsync();
 			}
 		}
@@ -308,37 +308,25 @@ var Egon = {};
 		
 		return foreignKeys;
 	};
-	
-	Table.prototype.toString = function() {
-		var str = "table: " + this._name + "\n",
-			columns = this.columns(),
-			i;
-			 
-		for (i = 0; i < columns.length; i += 1) {
-			str += "\t" + columns[i] + "\n";
-		}
 		
-		return str;
-	};
-	
 	/**
 	 * Creates a SQL string to create this table in a database. The 'IF NOT EXISTS' clause is
 	 * used to prevent corrupting the database or overwriting data.
 	 * 
-	 * @returns {String} A SQL expression.
+	 * @returns {String} A SQL string.
 	 */
-	Table.prototype.sql = function() {
+	Table.prototype.toString = function() {
 		var sql = "CREATE TABLE IF NOT EXISTS " + this._name + " (\n",
 			columns = this.columns(),
 			foreignKeys = this.foreignKeys(),
 			i;
 		
 		for (i = 0; i < columns.length; i += 1) {
-			sql += columns[i].sql() + ", \n";
+			sql += columns[i] + ", \n";
 		}
 		
 		for (i = 0; i < foreignKeys.length; i += 1) {
-			sql += "CONSTRAINT " + foreignKeys[i].name + " FOREIGN KEY (" + foreignKeys[i].column.name + ") " + foreignKeys[i].sql() + ", \n";
+			sql += "CONSTRAINT " + foreignKeys[i].name + " FOREIGN KEY (" + foreignKeys[i].column.name + ") " + foreignKeys[i] + ", \n";
 		}
 		
 		// Remove trailing newline character, comma, and space.
@@ -459,10 +447,6 @@ var Egon = {};
 		}
 	};
 	
-	Column.prototype.toString = function() {
-		return "column: " + this.name + " " + this._type.display; 
-	};
-	
 	/**
 	 * Returns a SQL expression with this column's name as the left operand for the
 	 * equals operator and a value as a literal value for the right operand.
@@ -556,9 +540,9 @@ var Egon = {};
 	/**
 	 * Creates an SQL string to create the column for a table.
 	 * 
-	 * @returns {String} A SQL clause.
+	 * @returns {String} A SQL string.
 	 */
-	Column.prototype.sql = function() {
+	Column.prototype.toString = function() {
 		// TODO: Add column-constraint support.
 		var sql = this.name + " " + this._type.dbType;
 		
@@ -587,7 +571,7 @@ var Egon = {};
 		}
 		
 		if (this.foreignKey) {
-			sql += " CONSTRAINT " + this.foreignKey.name + this.foreignKey.sql();
+			sql += " CONSTRAINT " + this.foreignKey.name + this.foreignKey;
 		}
 		
 		return sql;
@@ -618,22 +602,6 @@ var Egon = {};
 	};
 	
 	ForeignKey.prototype.toString = function() {
-		var str = this.name + " parent: " + this.parent + "\n columns: \n",
-			i;
-		
-		for (i = 0; i < this.columns.length; i += 1) {
-			str += this._columns[i] + "\n";
-		}
-		
-		return str;
-	};
-	
-	/**
-	 * Creates a SQL string for creating the foreign key in a table.
-	 * 
-	 * @returns {String} A SQL string.
-	 */
-	ForeignKey.prototype.sql = function() {
 		var sql = " REFERENCES " + this.parent._name + " (",
 			i;
 		
