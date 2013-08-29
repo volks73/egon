@@ -223,10 +223,14 @@ var Egon = {};
 	};
 	
 	/**
-	 * Creates an {Expr} object.
+	 * Factory method for creating tables.
+	 * 
+	 * @param {String} name - The table name.
+	 * @param {Object} [schema] - An object literal the values of the properties should be Column objects and the keys will be added as properties to this table.
+	 * @see {Table}
 	 */
-	Egon.expr = function() {
-		return new Expr();
+	Egon.table = function(name, schema) {
+		return new Table(name, schema);
 	};
 	
 	/**
@@ -390,9 +394,19 @@ var Egon = {};
 		return _delete;
 	};
 	
-	Egon.Table = Table;
-	
 	// TODO: Add support for creating indices for a table on a column.
+	
+	/**
+	 * Factory method for creating columns.
+	 * 
+	 * @param {String} name - The column name.
+	 * @param {TypeConstant} type - The column type.
+	 * @param {OptionsConstant} [options] - An object literal with keys from the {ColumnOptions} constants.
+	 * @see {Column}
+	 */
+	Egon.column = function(name, type, options) {
+		return new Column(name, type, options);
+	};
 	
 	/**
 	 * Constructor for a SQL database column.
@@ -577,7 +591,19 @@ var Egon = {};
 		return sql;
 	};
 	
-	Egon.Column = Column;
+	/**
+	 * Factory method for creating foreign keys.
+	 * 
+	 * @param {String} name - The name of the constraint.
+	 * @param {Table} parent - The parent or foreign table.
+	 * @param {Array} parentColumns - The columns in the parent, or foreign, table.
+	 * @param {String} [onDelete] - A {ForeignKeyAction} constants.
+	 * @param {String} [onUpdate] - A {ForeignKeyAction} constants.
+	 * @see {ForeignKey}
+	 */
+	Egon.foreignKey = function(name, parent, parentColumns, onDelete, onUpdate) {
+		return new ForeignKey(name, parent, parentColumns, onDelete, onUpdate);
+	};
 	
 	/**
 	 * Constructor for a Foreign Key.
@@ -622,8 +648,6 @@ var Egon = {};
 		
 		return sql;
 	};
-		
-	Egon.ForeignKey = ForeignKey;
 	
 	/**
 	 * Creates a bind parameter object.
@@ -670,6 +694,11 @@ var Egon = {};
 		this.params = params;
 	};
 	
+	/**
+	 * The SQL string ready for parameter binding and execution.
+	 * 
+	 * @return {String} The SQL string.
+	 */
 	Compiled.prototype.toString = function() {
 		return this._sql;
 	};
@@ -759,6 +788,13 @@ var Egon = {};
 		
 		return DEFAULT_PARAM + suffix;
 	}
+	
+	/**
+	 * A factory method for creating expressions.
+	 */
+	Egon.expr = function() {
+		return new Expr();
+	};
 	
 	/**
 	 * Constructor for a SQL expression clause.
