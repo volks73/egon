@@ -486,7 +486,7 @@ var Egon = {};
 	Column.prototype.notEquals = function(value) {
 		var expr = new Expr();
 		
-		expr = expr.column(this.name).notEquals().value(value);
+		expr = expr.column(this.name).notEquals(value);
 		
 		return expr;
 	};
@@ -501,7 +501,7 @@ var Egon = {};
 	Column.prototype.lessThan = function(value) {
 		var expr = new Expr();
 		
-		expr = expr.column(this.name).lessThan().value(value);
+		expr = expr.column(this.name).lessThan(value);
 		
 		return expr;
 	};
@@ -516,7 +516,7 @@ var Egon = {};
 	Column.prototype.greaterThan = function(value) {
 		var expr = new Expr();
 		
-		expr = expr.column(this.name).greaterThan().value(value);
+		expr = expr.column(this.name).greaterThan(value);
 		
 		return expr;
 	};
@@ -531,7 +531,7 @@ var Egon = {};
 	Column.prototype.lessThanEquals = function(value) {
 		var expr = new Expr();
 		
-		expr = expr.column(this.name).lessThanEquals().value(value);
+		expr = expr.column(this.name).lessThanEquals(value);
 		
 		return expr;
 	};
@@ -546,7 +546,7 @@ var Egon = {};
 	Column.prototype.greaterThanEquals = function(value) {
 		var expr = new Expr();
 		
-		expr = expr.column(this.name).greaterThanEquals().value(value);
+		expr = expr.column(this.name).greaterThanEquals(value);
 		
 		return expr;
 	};
