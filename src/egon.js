@@ -183,6 +183,20 @@ var Egon = {};
 	};
 	
 	/**
+	 * The possible raise function values for an expression.
+	 * 
+	 * @typedef {String} RaiseFunctionsConstant.
+	 * @readonly
+	 * @constant
+	 */
+	Egon.RAISE_FUNCTIONS = {
+		IGNORE: 'IGNORE',
+		ROLLBACK: 'ROLLBACK',
+		ABORT: 'ABORT',
+		FAIL: 'FAIL',
+	};
+	
+	/**
 	 * Initializes the library.
 	 * 
 	 * @param {mozIStorageConnection} aDBConn - A connection to a database. 
@@ -828,7 +842,7 @@ var Egon = {};
 	Expr.prototype = new Clause();
 	
 	/**
-	 * Adds a literal value to the tree. This does not directly add the value, but adds
+	 * Adds a literal value to the expression tree. This does not directly add the value, but adds
 	 * {Param} to the tree that is later bound to the value just before execution. This
 	 * avoids problems with SQL injection attacks and other bad things.
 	 * 
@@ -855,7 +869,7 @@ var Egon = {};
 	};
 	
 	/**
-	 * Adds a column name to this expression.
+	 * Adds a column name to the expression tree.
 	 * 
 	 * @param {String} columnName - A column name.
 	 * @returns {Expr} This SQL expression clause.
@@ -867,7 +881,7 @@ var Egon = {};
 	};
 	
 	/**
-	 * Adds the 'NOT' operator to this expression.
+	 * Adds the 'NOT' operator to the expression tree.
 	 * 
 	 * @param {Expr|String|Number} [operand] - The operand to the binary operator.
 	 * @returns {Expr} This SQL expression clause.
@@ -877,9 +891,9 @@ var Egon = {};
 	};
 	
 	/**
-	 * Begins a group expression. 
+	 * Begins a grouping. 
 	 * 
-	 * This pushes a '(' onto the tree.
+	 * This adds a '(' onto the expression tree.
 	 * 
 	 * @returns {Expr} This SQL expression clause.
 	 */
@@ -890,9 +904,9 @@ var Egon = {};
 	};
 	
 	/**
-	 * Ends a group expression.
+	 * Ends a grouping.
 	 * 
-	 * This pushes a ')' onto the tree.
+	 * This adds a ')' onto the expression tree.
 	 * 
 	 * @returns {Expr} This SQL expression clause.
 	 */
@@ -925,7 +939,7 @@ var Egon = {};
 	};
 	
 	/**
-	 * Adds the '||' concatenate operator to this expression.
+	 * Adds the '||' concatenate operator to the expression tree.
 	 * 
 	 * @param {Expr|String|Number} rightOperand - The right operand to the binary operator. 
 	 * @returns {Expr} This SQL expression clause.
@@ -935,7 +949,7 @@ var Egon = {};
 	};
 	
 	/**
-	 * Adds the '*' multiply operator to this expression.
+	 * Adds the '*' multiply operator to the expression tree.
 	 * 
 	 * @param {Expr|String|Number} rightOperand - The right operand to the binary operator. 
 	 * @returns {Expr} This SQL expression clause.
@@ -945,7 +959,7 @@ var Egon = {};
 	};
 	
 	/**
-	 * Adds the '*' multiply operator to this expression.
+	 * Adds the '*' multiply operator to the expression tree.
 	 * 
 	 * @param {Expr|String|Number} rightOperand - The right operand to the binary operator. 
 	 * @returns {Expr} This SQL expression clause.
@@ -955,7 +969,7 @@ var Egon = {};
 	};
 	
 	/**
-	 * Adds the '/' divide operator to this expression.
+	 * Adds the '/' divide operator to the expression tree.
 	 * 
 	 * @param {Expr|String|Number} rightOperand - The right operand to the binary operator. 
 	 * @returns {Expr} This SQL expression clause.
@@ -965,7 +979,7 @@ var Egon = {};
 	};
 	
 	/**
-	 * Adds the '/' divide operator to this expression.
+	 * Adds the '/' divide operator to the expression tree.
 	 * 
 	 * @param {Expr|String|Number} rightOperand - The right operand to the binary operator. 
 	 * @returns {Expr} This SQL expression clause.
@@ -975,7 +989,7 @@ var Egon = {};
 	};
 	
 	/**
-	 * Adds the '%' modulo operator to this expression.
+	 * Adds the '%' modulo operator to the expression tree.
 	 * 
 	 * @param {Expr|String|Number} rightOperand - The right operand to the binary operator. 
 	 * @returns {Expr} This SQL expression clause.
@@ -985,7 +999,7 @@ var Egon = {};
 	};
 	
 	/**
-	 * Adds the '%' modulo operator to this expression.
+	 * Adds the '%' modulo operator to the expression tree.
 	 * 
 	 * @param {Expr|String|Number} rightOperand - The right operand to the binary operator. 
 	 * @returns {Expr} This SQL expression clause.
@@ -995,7 +1009,7 @@ var Egon = {};
 	};
 	
 	/**
-	 * Adds the '+' add operator to this expression.
+	 * Adds the '+' add operator to the expression tree.
 	 * 
 	 * @param {Expr|String|Number} rightOperand - The right operand to the binary operator. 
 	 * @returns {Expr} This SQL expression clause.
@@ -1005,7 +1019,7 @@ var Egon = {};
 	};
 	
 	/**
-	 * Adds the '-' subtract operator to this expression.
+	 * Adds the '-' subtract operator to the expression tree.
 	 * 
 	 * @param {Expr|String|Number} rightOperand - The right operand to the binary operator. 
 	 * @returns {Expr} This SQL expression clause.
@@ -1015,7 +1029,7 @@ var Egon = {};
 	};
 	
 	/**
-	 * Adds the '<' less than operator to this expression.
+	 * Adds the '<' less than operator to the expression tree.
 	 * 
 	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
 	 * @returns {Expr} This SQL expression clause.
@@ -1025,7 +1039,7 @@ var Egon = {};
 	};
 	
 	/**
-	 * Adds the '<=' less than equals operator to this expression.
+	 * Adds the '<=' less than equals operator to the expression tree.
 	 * 
 	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
 	 * @returns {Expr} This SQL expression clause.
@@ -1035,7 +1049,7 @@ var Egon = {};
 	};
 	
 	/**
-	 * Adds the '>' greater than operator to this expression.
+	 * Adds the '>' greater than operator to the expression tree.
 	 * 
 	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
 	 * @returns {Expr} This SQL expression clause.
@@ -1045,7 +1059,7 @@ var Egon = {};
 	};
 	
 	/**
-	 * Adds the '>=' greater than equals operator to this expression.
+	 * Adds the '>=' greater than equals operator to the expression tree.
 	 * 
 	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
 	 * @returns {Expr} This SQL expression clause.
@@ -1055,7 +1069,7 @@ var Egon = {};
 	};
 	
 	/**
-	 * Adds the '=' or '==' equals operator to this expression.
+	 * Adds the '=' or '==' equals operator to the expression tree.
 	 * 
 	 * @param {Expr|String|Number} rightOperand - The right operand to the binary operator. 
 	 * @returns {Expr} This SQL expression clause.
@@ -1065,7 +1079,7 @@ var Egon = {};
 	};
 	
 	/**
-	 * Adds the '!=' not equals operator to this expression.
+	 * Adds the '!=' not equals operator to the expression tree.
 	 * 
 	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
 	 * @returns {Expr} This SQL expression clause.
@@ -1073,79 +1087,9 @@ var Egon = {};
 	Expr.prototype.notEquals = function(rightOperand) {
 		return this._binaryOperator(Egon.OPERATORS.NOT_EQUALS, rightOperand);
 	};
-		
-	/**
-	 * Adds the 'IS' operator to this expression.
-	 * 
-	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.is = function(rightOperand) {
-		return this._binaryOperator(Egon.OPERATORS.IS, rightOperand);
-	};
 	
 	/**
-	 * Adds the 'IS NOT' operator to this expression.
-	 * 
-	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.isNot = function(rightOperand) {
-		return this._binaryOperator(Egon.OPERATORS.IS_NOT, rightOperand);
-	};
-	
-	/**
-	 * Adds the 'IN' operator to this expression.
-	 * 
-	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.in_ = function(rightOperand) {
-		return this._binaryOperator(Egon.OPERATORS.IN, rightOperand);
-	};
-	
-	/**
-	 * Adds the 'LIKE' operator to this expression.
-	 * 
-	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.like = function(rightOperand) {
-		return this._binaryOperator(Egon.OPERATORS.LIKE, rightOperand);
-	};
-	
-	/**
-	 * Adds the 'GLOB operator to this expression.
-	 * 
-	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.glob = function(rightOperand) {
-		return this._binaryOperator(Egon.OPERATORS.GLOB, rightOperand);
-	};
-	
-	/**
-	 * Adds the 'MATCH' operator to this expression.
-	 * 
-	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.match = function(rightOperand) {
-		return this._binaryOperator(Egon.OPERATORS.MATCH, rightOperand);
-	};
-	
-	/**
-	 * Adds the 'REGEXP' operator to this expression.
-	 * 
-	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.regexp = function(rightOperand) {
-		return this._binaryOperator(Egon.OPERATORS.REGEXP, rightOperand);
-	};
-	
-	/**
-	 * Adds the 'AND' operator to this expression.
+	 * Adds the 'AND' operator to the expression tree.
 	 * 
 	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
 	 * @returns {Expr} This SQL expression clause.
@@ -1155,13 +1099,226 @@ var Egon = {};
 	};
 	
 	/**
-	 * Adds the 'OR' operator to this expression.
+	 * Adds the 'OR' operator to the expression tree.
 	 * 
 	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
 	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.or = function(rightOperand) {
 		return this._binaryOperator(Egon.OPERATORS.OR, rightOperand);
+	};
+	
+	/**
+	 * Adds the 'CAST' function to the expression tree.
+	 * 
+	 * @param {Expr|String|Number} expr - The object to cast.
+	 * @param {TypeConstant} toType - The type to convert or cast the expr to.
+	 * @returns {Expr} This SQL expression clause.
+	 */
+	Expr.prototype.cast = function(expr, toType) {
+		this._tree.push(" CAST ");
+		this.begin();
+		this._tree.push(expr);
+		this._tree.push(" AS ");
+		this._tree.push(toType.dbType);
+		this.end();
+		
+		return this;
+	};
+	
+	/**
+	 * Adds the 'COLLATE' function to the expression tree.
+	 * 
+	 * @param {Expr|String|Number} expr - The object to collate.
+	 * @param {CollateConstant} collation - The collation.
+	 * @returns {Expr} This SQL expression clause.
+	 */
+	Expr.prototype.collate = function(expr, collation) {
+		this._tree.push(expr);
+		this._tree.push(collation);
+		
+		return this;
+	};
+	
+	/**
+	 * Adds the 'LIKE' operator to the expression tree.
+	 * 
+	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
+	 * @returns {Expr} This SQL expression clause.
+	 */
+	Expr.prototype.like = function(rightOperand) {
+		return this._binaryOperator(Egon.OPERATORS.LIKE, rightOperand);
+	};
+	
+	/**
+	 * Adds the 'GLOB' operator to the expression tree.
+	 * 
+	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
+	 * @returns {Expr} This SQL expression clause.
+	 */
+	Expr.prototype.glob = function(rightOperand) {
+		return this._binaryOperator(Egon.OPERATORS.GLOB, rightOperand);
+	};
+		
+	/**
+	 * Adds the 'REGEXP' operator to the expression tree.
+	 * 
+	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
+	 * @returns {Expr} This SQL expression clause.
+	 */
+	Expr.prototype.regexp = function(rightOperand) {
+		return this._binaryOperator(Egon.OPERATORS.REGEXP, rightOperand);
+	};
+	
+	/**
+	 * Adds the 'MATCH' operator to the expression tree.
+	 * 
+	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
+	 * @returns {Expr} This SQL expression clause.
+	 */
+	Expr.prototype.match = function(rightOperand) {
+		return this._binaryOperator(Egon.OPERATORS.MATCH, rightOperand);
+	};
+	
+	/**
+	 * Adds the 'ESCAPE' clause to the expression tree.
+	 * 
+	 * @param {Expr} expr - The escape expression.
+	 * @returns {Expr} This SQL expression clause.
+	 */
+	Expr.prototype.escape = function(expr) {
+		this._tree.push(" ESCAPE ");
+		this._tree.push(expr);
+		
+		return this;
+	};
+	
+	/**
+	 * Adds the 'ISNULL' cluase to the expression tree.
+	 * 
+	 * @returns {Expr} This SQL expression clause.
+	 */
+	Expr.prototype.isNull = function() {
+		this._tree.push(" ISNULL");
+		
+		return this;
+	};
+	
+	/**
+	 * Adds the 'NOTNULL' cluase to the expression tree.
+	 * 
+	 * @returns {Expr} This SQL expression clause.
+	 */
+	Expr.prototype.notNull = function() {
+		this._tree.push(" NOTNULL");
+		
+		return this;
+	};
+	
+	/**
+	 * Adds the 'IS' operator to the expression tree.
+	 * 
+	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
+	 * @returns {Expr} This SQL expression clause.
+	 */
+	Expr.prototype.is = function(rightOperand) {
+		return this._binaryOperator(Egon.OPERATORS.IS, rightOperand);
+	};
+	
+	/**
+	 * Adds the 'IS NOT' operator to the expression tree.
+	 * 
+	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
+	 * @returns {Expr} This SQL expression clause.
+	 */
+	Expr.prototype.isNot = function(rightOperand) {
+		return this._binaryOperator(Egon.OPERATORS.IS_NOT, rightOperand);
+	};
+	
+	/**
+	 * Adds the 'IN' operator to the expression tree.
+	 * 
+	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
+	 * @returns {Expr} This SQL expression clause.
+	 */
+	Expr.prototype.in_ = function(rightOperand) {
+		return this._binaryOperator(Egon.OPERATORS.IN, rightOperand);
+	};
+	
+	/**
+	 * Adds the 'BETWEEN' clause to the expression tree.
+	 * 
+	 * @param {Expr|String|Number} leftOperand - The left operand.
+	 * @param {Expr|String|Number} rightOperand - The right operand.
+	 * @returns {Expr} This SQL expression clause.
+	 */
+	Expr.prototype.between = function(leftOperand, rightOperand) {
+		this._tree.push(" BETWEEN ");
+		this._tree.push(leftOperand);
+		this._tree.push(" AND ");
+		this._tree.push(rightOperand);
+		
+		return this;
+	};
+	
+	/**
+	 * Adds the 'EXISTS' clause to the expression tree.
+	 * 
+	 * @param {Clause} select - A select clause.
+	 * @returns {Expr} This SQL expression clause.
+	 */
+	Expr.prototype.exists = function(select) {
+		this._tree.push(" EXISTS ");
+		this.begin();
+		this._tree.push(select);
+		this.end();
+		
+		return this;
+	};
+	
+	/**
+	 * Adds the 'CASE' clause to the expression tree.
+	 * 
+	 * @param {Expr} expr - The expression.
+	 * @param {Expr} whenExpr - The when expression.
+	 * @param {Expr} thenExpr - The then expression.
+	 * @param {Expr} elseExpr - The else expression.
+	 * @returns {Expr} This SQL expression clause.
+	 */
+	Expr.prototype.case_ = function(expr, whenExpr, thenExpr, elseExpr) {
+		this._tree.push(" CASE ");
+		this._tree.push(expr);
+		this._tree.push(" WHEN ");
+		this._tree.push(whenExpr);
+		this._tree.push(" THEN ");
+		this._tree.push(thenExpr);
+		this._tree.push(" ELSE ");
+		this._tree.push(elseExpr);
+		this._tree.push(" END");
+		
+		return this;
+	}; 
+	
+	/**
+	 * Adds the 'raise-function' clause to the expression tree.
+	 * 
+	 * @param {RaiseFunctionsConstant} func - The raise function.
+	 * @param {String} errorMessage - The error message.
+	 * @returns {Expr} This SQL expression clause.
+	 */
+	Expr.prototype.raise = function(func, errorMessage) {
+		this._tree.push(" RAISE ");
+		this.begin();
+		this._tree.push(func);
+		
+		if (func !== Egon.RAISE_FUNCTIONS.IGNORE) {
+			this._tree.push(", ");
+			this._tree.push(errorMessage);
+		}
+		
+		this.end();
+		
+		return this;
 	};
 	
 	/**
