@@ -830,13 +830,15 @@ var Egon = {};
 	};
 	
 	/**
-	 * Adds the '=' operator to this expression.
+	 * Adds a binary operator and its right operand to the tree. The left operand
+	 * is assumed to already be attached to the tree.
 	 * 
-	 * @param {Expr|String|Number} rightOperand - The right operand to the binary operator. 
-	 * @returns {Expr} This SQL expression clause.
+	 * @param {OPERATORS} operator - The operator.
+	 * @param {Expr|String|Number} rightOperant - The right operand
+	 * @return {Expr} This SQL expression clause.  
 	 */
-	Expr.prototype.equals = function(rightOperand) {
-		this._tree.push(" " + Egon.OPERATORS.EQUALS + " ");
+	Expr.prototype._binaryOperator = function(operator, rightOperand) {
+		this._tree.push(" " + operator + " ");
 		
 		if (rightOperand !== undefined) {
 			if (rightOperand instanceof Expr) {
@@ -847,6 +849,16 @@ var Egon = {};
 		}
 		
 		return this;
+	};
+	
+	/**
+	 * Adds the '=' operator to this expression.
+	 * 
+	 * @param {Expr|String|Number} rightOperand - The right operand to the binary operator. 
+	 * @returns {Expr} This SQL expression clause.
+	 */
+	Expr.prototype.equals = function(rightOperand) {
+		return this._binaryOperator(Egon.OPERATORS.EQUALS, rightOperand);
 	};
 	
 	/**
@@ -856,17 +868,7 @@ var Egon = {};
 	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.notEquals = function(rightOperand) {
-		this._tree.push(" " + Egon.OPERATORS.NOT_EQUALS + " ");
-		
-		if (rightOperand !== undefined) {
-			if (rightOperand instanceof Expr) {
-				this._tree.push(rightOperand);
-			} else {
-				this._tree.push(new Param(rightOperand));
-			}
-		}
-		
-		return this;
+		return this._binaryOperator(Egon.OPERATORS.NOT_EQUALS, rightOperand);
 	};
 	
 	/**
@@ -876,17 +878,7 @@ var Egon = {};
 	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.lessThan = function(rightOperand) {
-		this._tree.push(" " + Egon.OPERATORS.LESS_THAN + " ");
-		
-		if (rightOperand !== undefined) {
-			if (rightOperand instanceof Expr) {
-				this._tree.push(rightOperand);
-			} else {
-				this._tree.push(new Param(rightOperand));
-			}
-		}
-		
-		return this;
+		return this._binaryOperator(Egon.OPERATORS.LESS_THAN, rightOperand);
 	};
 	
 	/**
@@ -896,17 +888,7 @@ var Egon = {};
 	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.greaterThan = function(rightOperand) {
-		this._tree.push(" " + Egon.OPERATORS.GREATER_THAN + " ");
-		
-		if (rightOperand !== undefined) {
-			if (rightOperand instanceof Expr) {
-				this._tree.push(rightOperand);
-			} else {
-				this._tree.push(new Param(rightOperand));
-			}
-		}
-		
-		return this;
+		return this._binaryOperator(Egon.OPERATORS.GREATER_THAN, rightOperand);
 	};
 	
 	/**
@@ -916,17 +898,7 @@ var Egon = {};
 	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.lessThanEquals = function(rightOperand) {
-		this._tree.push(" " + Egon.OPERATORS.LESS_THAN_EQUALS + " ");
-		
-		if (rightOperand !== undefined) {
-			if (rightOperand instanceof Expr) {
-				this._tree.push(rightOperand);
-			} else {
-				this._tree.push(new Param(rightOperand));
-			}
-		}
-		
-		return this;
+		return this._binaryOperator(Egon.OPERATORS.LESS_THAN_EQUALS, rightOperand);
 	};
 	
 	/**
@@ -936,17 +908,7 @@ var Egon = {};
 	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.greaterThanEquals = function(rightOperand) {
-		this._tree.push(" " + Egon.OPERATORS.GREATER_THAN_EQUALS + " ");
-		
-		if (rightOperand !== undefined) {
-			if (rightOperand instanceof Expr) {
-				this._tree.push(rightOperand);
-			} else {
-				this._tree.push(new Param(rightOperand));
-			}
-		}
-		
-		return this;
+		return this._binaryOperator(Egon.OPERATORS.GREATER_THAN_EQUALS, rightOperand);
 	};
 	
 	// TODO: Add 'LIKE' operator function.
@@ -958,17 +920,7 @@ var Egon = {};
 	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.and = function(rightOperand) {
-		this._tree.push(" " + Egon.OPERATORS.AND + " ");
-		
-		if (rightOperand !== undefined) {
-			if (rightOperand instanceof Expr) {
-				this._tree.push(rightOperand);
-			} else {
-				this._tree.push(new Param(rightOperand));
-			}	
-		}
-		
-		return this;
+		return this._binaryOperator(Egon.OPERATORS.AND, rightOperand);
 	};
 	
 	/**
@@ -978,17 +930,7 @@ var Egon = {};
 	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.or = function(rightOperand) {
-		this._tree.push(" " + Egon.OPERATOR.OR + " ");
-		
-		if (rightOperand !== undefined) {
-			if (rightOperand instanceof Expr) {
-				this._tree.push(rightOperand);
-			} else {
-				this._tree.push(new Param(rightOperand));
-			}	
-		}
-		
-		return this;
+		return this._binaryOperator(Egon.OPERATORS.OR, rightOperand);
 	};
 	
 	/**
@@ -998,17 +940,7 @@ var Egon = {};
 	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.not = function(operand) {
-		this._tree.push(" " + Egon.OPERATORS.NOT + " ");
-		
-		if (operand !== undefined) {
-			if (operand instanceof Expr) {
-				this._tree.push(operand);
-			} else {
-				this._tree.push(new Param(operand));
-			}	
-		}
-
-		return this;
+		return this._binaryOperator(Egon.OPERATORS.NOT, operand);
 	};
 	
 	/**
