@@ -129,7 +129,7 @@ var Egon = {};
 	};
 	
 	/**
-	 * Initializes the library.
+	 * Initializes the object relational mapper.
 	 * 
 	 * @param {mozIStorageConnection} aDBConn - A connection to a database. 
 	 */
@@ -169,8 +169,6 @@ var Egon = {};
 			bindings,
 			stmt,
 			key;
-			
-		dump(compiled + "\n");
 		
 		stmt = dbConn.createAsyncStatement(compiled.toString());
 		stmtParams = stmt.newBindingParamsArray();		
@@ -618,18 +616,23 @@ var Egon = {};
 	};
 	
 	/**
-	 * Factory method for creating tables.
+	 * Factory method for creating a table. If table by the supplied name already exists in the metadata, or schema,
+	 * then the existing table is return; otherwise, a new table is created.
 	 * 
 	 * @param {String} name - The table name.
 	 * @param {Object} [schema] - An object literal the values of the properties should be Column objects and the keys will be added as properties to this table.
 	 * @see {Table}
 	 */
 	Egon.table = function(name, schema) {
-		return new Table(name, schema);
+		if (metadata[name] !== undefined) {
+			return metadata[name];
+		} else {
+			return new Table(name, schema);	
+		}
 	};
 	
 	/**
-	 * Factory method for creating columns.
+	 * Factory method for creating a column.
 	 * 
 	 * @param {String} name - The column name.
 	 * @param {TypeConstant} type - The column type.
@@ -641,7 +644,7 @@ var Egon = {};
 	};
 	
 	/**
-	 * Factory method for creating foreign keys.
+	 * Factory method for creating a foreign key.
 	 * 
 	 * @param {String} name - The name of the constraint.
 	 * @param {Table} parent - The parent or foreign table.

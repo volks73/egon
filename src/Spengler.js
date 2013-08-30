@@ -946,6 +946,29 @@ var Spengler = {};
 		return this;
 	};
 	
+	// TODO: Add 'SELECT' clause.
+	
+	/**
+	 * Constructor for the 'SELECT' clause.
+	 * 
+	 * @constructor
+	 */
+	function Select() {
+		this._tree = [];
+	};
+	
+	Select.prototype = new Clause();
+	
+	/**
+	 * Adds the columns to the expression tree.
+	 * 
+	 * @param {Array} columns - The column names.
+	 * @returns {Select} This SQL clause.
+	 */
+	Select.prototype.columns(columns) {
+		return this;
+	};
+	
 	/**
 	 * A factory method for creating expressions.
 	 * 
@@ -981,5 +1004,14 @@ var Spengler = {};
 	 */
 	Spengler.remove = function() {
 		return new Delete();
+	};
+	
+	/**
+	 * Factory method for creating a 'SELECT' clause.
+	 * 
+	 * @returns {Select} A 'SELECT' clause.
+	 */
+	Spengler.select = function() {
+		return new Select();
 	};
 }());
