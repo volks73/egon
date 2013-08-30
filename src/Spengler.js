@@ -55,48 +55,6 @@ var Spengler = {};
 	};
 	
 	/**
-	 * The possible values for the 'conflict' option.
-	 * 
-	 * @typedef {String} ConflictConstant
-	 * @readonly
-	 * @constant
-	 */
-	Spengler.CONFLICT = {
-		ROLLBACK: 'ROLLBACK',
-		ABORT: 'ABORT',
-		FAIL: 'FAIL',
-		IGNORE: 'IGNORE',
-		REPLACE: 'REPLACE',
-	};
-	
-	/**
-	 * The possible values for the 'ON DELETE' and 'ON UPDATE' clauses of a Foreign Key SQL definition.
-	 * 
-	 * @typedef {String} ActionsConstant
-	 * @readonly
-	 * @constant
-	 */
-	Spengler.ACTIONS = {
-		SET_NULL: 'SET NULL',
-		SET_DEFAULT: 'SET DEFAULT',
-		CASCADE: 'CASCADE',
-		RESTRICT: 'RESTRICT',
-		NO_ACTION: 'NO ACTION',
-	};
-	
-	/**
-	 * The possible values for the 'DEFERRABLE' clause of a Foreign Key SQL definition.
-	 * 
-	 * @typedef {String} DefersConstant
-	 * @readonly
-	 * @constant
-	 */
-	Spengler.DEFERS = {
-		DEFERRED: 'INITIALLY DEFERRED',
-		IMMEDIATE: 'INITIALLY IMMEDIATE',
-	};
-	
-	/**
 	 * The possible operators for an expression used in a 'WHERE' clause.
 	 * 
 	 * @typedef {String} OperatorsConstant.

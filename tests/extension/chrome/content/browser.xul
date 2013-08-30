@@ -2,5 +2,5 @@
 <?xml-stylesheet href="chrome://egon/skin/skin.css" type="text/css"?>
 <!DOCTYPE egon SYSTEM "chrome://egon/locale/translations.dtd">
 <overlay id="egon" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
-	<script src="TestSpengler.js" />
+	<script src="TestEgon.js" />
 </overlay>

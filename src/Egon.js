@@ -35,6 +35,12 @@
  * ***** END LICENSE BLOCK ***** */
 var EXPORTED_SYMBOLS = ["Egon"];
 
+//TODO: Create build script
+// TODO: Create build script for different deployment environments: Mozilla JavaScript Module (JSM), node.js, browser, etc.
+// TODO: Create build script option to append Egon to Spengler and deploy as single file.
+
+Components.utils.import("resource://Egon/Spengler.js");
+
 /**
  * @namespace
  */
@@ -81,19 +87,6 @@ var Egon = {};
 	};
 	
 	/**
-	 * The possible values for the 'collate' option.
-	 * 
-	 * @typedef {String} CollateConstant
-	 * @readonly
-	 * @constant
-	 */
-	Egon.COLLATE = {
-		BINARY: 'BINARY',
-		NOCASE: 'NOCASE',
-		RTRIM: 'RTRIM',	
-	};
-	
-	/**
 	 * The possible values for the 'conflict' option.
 	 * 
 	 * @typedef {String} ConflictConstant
@@ -133,67 +126,6 @@ var Egon = {};
 	Egon.DEFERS = {
 		DEFERRED: 'INITIALLY DEFERRED',
 		IMMEDIATE: 'INITIALLY IMMEDIATE',
-	};
-	
-	/**
-	 * The possible operators for an expression used in a 'WHERE' clause.
-	 * 
-	 * @typedef {String} OperatorsConstant.
-	 * @readonly
-	 * @constant
-	 */
-	Egon.OPERATORS = {
-		CONCAT: '||',
-		MULTIPLY: '*',
-		DIVIDE: '/',
-		MODULO: '%',
-		ADD: '+',
-		SUBTRACT: '-',
-		LESS_THAN: '<',
-		LESS_THAN_EQUALS: '<=',
-		GREATER_THAN: '>',
-		GREATER_THAN_EQUALS: '>=',
-		EQUALS: '=',
-		NOT_EQUALS: '!=',
-		IS: 'IS',
-		IS_NOT: 'IS NOT',
-		IN: 'IN',
-		LIKE: 'LIKE',
-		GLOB: 'GLOB',
-		MATCH: 'MATCH',
-		REGEXP: 'REGEXP',
-		AND: 'AND',
-		OR: 'OR',
-		NOT: 'NOT',
-		COLLATE: '~',
-	};
-	
-	/**
-	 * The possible literal values for an expression.
-	 * 
-	 * @typedef {String} LiteralConstants.
-	 * @readonly
-	 * @constant
-	 */
-	Egon.LITERAL_VALUES = {
-		NULL: 'NULL',
-		CURRENT_TIME: 'CURRENT_TIME',
-		CURRENT_DATE: 'CURRENT_DATE',
-		CURRENT_TIMESTAMP: 'CURRENT_TIMESTAMP',
-	};
-	
-	/**
-	 * The possible raise function values for an expression.
-	 * 
-	 * @typedef {String} RaiseFunctionsConstant.
-	 * @readonly
-	 * @constant
-	 */
-	Egon.RAISE_FUNCTIONS = {
-		IGNORE: 'IGNORE',
-		ROLLBACK: 'ROLLBACK',
-		ABORT: 'ABORT',
-		FAIL: 'FAIL',
 	};
 	
 	/**
@@ -252,17 +184,6 @@ var Egon = {};
 		stmt.bindParameters(stmtParams);
 		
 		stmt.executeAsync(callback);		
-	};
-	
-	/**
-	 * Factory method for creating tables.
-	 * 
-	 * @param {String} name - The table name.
-	 * @param {Object} [schema] - An object literal the values of the properties should be Column objects and the keys will be added as properties to this table.
-	 * @see {Table}
-	 */
-	Egon.table = function(name, schema) {
-		return new Table(name, schema);
 	};
 	
 	/**
@@ -378,8 +299,7 @@ var Egon = {};
 	 * @returns {Insert} An 'INSERT' SQL clause.
 	 */
 	Table.prototype.insert = function(values) {
-		var insert = new Insert(),
-			columnNames = [],
+		var columnNames = [],
 			that = this,
 			columnKey;
 		
@@ -387,9 +307,7 @@ var Egon = {};
 			columnNames.push(that[columnKey].name);
 		}
 		
-		insert.into(this._name).columns(columnNames).values(values);
-		
-		return insert;
+		return Spengler.insert().into(this._name).columns(columnNames).values(values);
 	};
 	
 	/**
@@ -399,8 +317,7 @@ var Egon = {};
 	 * @returns {Update} A 'UPDATE' SQL clause.
 	 */
 	Table.prototype.update = function(values) {
-		var update = new Update(this._name),
-			that = this,
+		var that = this,
 			columns = {},
 			columnKey;
 			
@@ -408,9 +325,7 @@ var Egon = {};
 			columns[that[columnKey].name] = values[columnKey];
 		}
 		
-		update.set(columns);
-		
-		return update;
+		return Spengler.update(this._name).set(columns);
 	};
 	
 	/**
@@ -419,7 +334,7 @@ var Egon = {};
 	 * @returns {Delete} A 'DELETE' SQL clause.
 	 */
 	Table.prototype.remove = function() {
-		var _delete = new Delete();
+		var _delete = Spengler.remove();
 		
 		_delete.from(this._name);
 		
@@ -427,18 +342,6 @@ var Egon = {};
 	};
 	
 	// TODO: Add support for creating indices for a table on a column.
-	
-	/**
-	 * Factory method for creating columns.
-	 * 
-	 * @param {String} name - The column name.
-	 * @param {TypeConstant} type - The column type.
-	 * @param {OptionsConstant} [options] - An object literal with keys from the {ColumnOptions} constants.
-	 * @see {Column}
-	 */
-	Egon.column = function(name, type, options) {
-		return new Column(name, type, options);
-	};
 	
 	/**
 	 * Constructor for a SQL database column.
@@ -501,11 +404,7 @@ var Egon = {};
 	 * @returns {Expr} A SQL expression that can be used for a 'WHERE' clause or chained together with other expressions.
 	 */
 	Column.prototype.equals = function(value) {
-		var expr = new Expr();
-		
-		expr = expr.column(this.name).equals(value);
-		
-		return expr;
+		return Spengler.expr().column(this.name).equals(value);
 	};
 	
 	/**
@@ -516,11 +415,7 @@ var Egon = {};
 	 * @returns {Expr} A SQL expression that can be used for a 'WHERE' clause or chained together with other expressions.
 	 */
 	Column.prototype.notEquals = function(value) {
-		var expr = new Expr();
-		
-		expr = expr.column(this.name).notEquals(value);
-		
-		return expr;
+		return Spengler.expr().column(this.name).notEquals(value);
 	};
 	
 	/**
@@ -531,11 +426,7 @@ var Egon = {};
 	 * @returns {Expr} A SQL expression that can be used for a 'WHERE' clause or chained together with other expressions.
 	 */
 	Column.prototype.lessThan = function(value) {
-		var expr = new Expr();
-		
-		expr = expr.column(this.name).lessThan(value);
-		
-		return expr;
+		return Spengler.expr().column(this.name).lessThan(value);
 	};
 	
 	/**
@@ -546,11 +437,7 @@ var Egon = {};
 	 * @returns {Expr} A SQL expression that can be used for a 'WHERE' clause or chained together with other expressions.
 	 */
 	Column.prototype.greaterThan = function(value) {
-		var expr = new Expr();
-		
-		expr = expr.column(this.name).greaterThan(value);
-		
-		return expr;
+		return Spengler.expr().column(this.name).greaterThan(value);
 	};
 	
 	/**
@@ -561,11 +448,7 @@ var Egon = {};
 	 * @returns {Expr} A SQL expression that can be used for a 'WHERE' clause or chained together with other expressions.
 	 */
 	Column.prototype.lessThanEquals = function(value) {
-		var expr = new Expr();
-		
-		expr = expr.column(this.name).lessThanEquals(value);
-		
-		return expr;
+		return Spengler.expr().column(this.name).lessThanEquals(value);
 	};
 	
 	/**
@@ -576,11 +459,7 @@ var Egon = {};
 	 * @returns {Expr} A SQL expression that can be used for a 'WHERE' clause or chained together with other expressions.
 	 */
 	Column.prototype.greaterThanEquals = function(value) {
-		var expr = new Expr();
-		
-		expr = expr.column(this.name).greaterThanEquals(value);
-		
-		return expr;
+		return Spengler.expr().column(this.name).greaterThanEquals(value);
 	};
 	
 	/**
@@ -621,20 +500,6 @@ var Egon = {};
 		}
 		
 		return sql;
-	};
-	
-	/**
-	 * Factory method for creating foreign keys.
-	 * 
-	 * @param {String} name - The name of the constraint.
-	 * @param {Table} parent - The parent or foreign table.
-	 * @param {Array} parentColumns - The columns in the parent, or foreign, table.
-	 * @param {String} [onDelete] - A {ForeignKeyAction} constants.
-	 * @param {String} [onUpdate] - A {ForeignKeyAction} constants.
-	 * @see {ForeignKey}
-	 */
-	Egon.foreignKey = function(name, parent, parentColumns, onDelete, onUpdate) {
-		return new ForeignKey(name, parent, parentColumns, onDelete, onUpdate);
 	};
 	
 	/**
@@ -679,835 +544,6 @@ var Egon = {};
 		}
 		
 		return sql;
-	};
-	
-	/**
-	 * Creates a bind parameter object.
-	 * 
-	 * A bind parameter has a key, or placeholder, and a value. The value replaces the placeholder 
-	 * whening binding the parameters to a SQL statement. This prevents SQL injection attacks because
-	 * the value is never executed as SQL.
-	 * 
-	 * If a key is not provided, then a numeric, or index, key is used.
-	 * 
-	 * @constructor
-	 * 
-	 * @param {Object} value - The literal value.
-	 * @param {String} [key] - The key, or placeholder, for the literal value that will be replaced on binding.
-	 */
-	function Param(value, key) {
-		this.value = value;
-		this.key = key;
-	};
-	
-	Param.prototype.toString = function() {
-		var str = "{";
-		
-		if (this.key !== undefined) {
-			str += this.key; 
-		}
-		else {
-			str += "?";
-		}
-		
-		return str + ": '" + this.value + "'}";
-	};
-	
-	/**
-	 * Constructor for a compiled object. This is a compiled clause.
-	 * 
-	 * @constructor
-	 * 
-	 * @param {String} sql - The SQL string compiled from a clause.
-	 * @param {Object} params - A literal with the properties as the keys for the named bind parameters and the property values as the binding values.
-	 */
-	function Compiled(sql, params) {
-		this._sql = sql;
-		this.params = params;
-	};
-	
-	/**
-	 * The SQL string ready for parameter binding and execution.
-	 * 
-	 * @return {String} The SQL string.
-	 */
-	Compiled.prototype.toString = function() {
-		return this._sql;
-	};
-	
-	
-	/**
-	 * Constructor for the parent object for all SQL clauses.
-	 * 
-	 * @constructor
-	 */
-	function Clause() {
-		this._tree = [];
-	};
-	
-	/**
-	 * Gets the full tree. The child clauses are added to this clause's tree.
-	 * 
-	 * @returns {Array} The full tree with child clauses.
-	 */
-	Clause.prototype.tree = function() {
-		var tree = [],
-			i;
-		
-		for (i = 0; i < this._tree.length; i += 1) {
-			if (this._tree[i] instanceof Clause) {
-				tree = tree.concat(this._tree[i].tree());
-			}
-			else {
-				tree.push(this._tree[i]);
-			}
-		}
-		
-		return tree;
-	};
-	
-	/**
-	 * Compiles the clause ready for parameter binding and execution.
-	 * 
-	 * @returns {Compiled} A compiled object that contains the SQL string and the parameters for binding.
-	 */
-	Clause.prototype.compile = function() {
-		var sql = '',
-			tree = this.tree(),
-			params = {},
-			paramCount = 0,
-			node,
-			i;
-		
-		for (i = 0; i < tree.length; i += 1) {
-			node = tree[i];
-			if (node instanceof Param) {
-				if (!node.key) {
-					node.key = _generateParamKey(paramCount);
-					paramCount += 1;
-				}
-				
-				sql += ":" + node.key;
-				params[node.key] = node.value;
-			} else {
-				sql += node;
-			}
-		}
-		
-		return new Compiled(sql, params);
-	};
-	
-	/**
-	 * Generates a named parameter key based on the current number of parameters.
-	 * 
-	 * A named parameter is created using the following pattern: 'paramA', 'paramB', 
-	 * 'paramC', ... 'paramAA', 'paramBB', ... 'paramAAA' and so on.
-	 * 
-	 * @param {Integer} paramCount - The current number of parameters.
-	 */
-	function _generateParamKey(paramCount) {
-		var DEFAULT_PARAM = "param",
-			charCode = 65 + (paramCount % 26),
-			repeat = paramCount / 26,
-			suffix,
-			i;
-		
-		suffix = String.fromCharCode(charCode);
-		
-		for (i = 1; i < repeat; i += 1) {
-			suffix = String.fromCharCode(charCode);
-		}
-		
-		return DEFAULT_PARAM + suffix;
-	}
-	
-	/**
-	 * A factory method for creating expressions.
-	 * 
-	 * @returns {Expr} A new Expr object.
-	 */
-	Egon.expr = function() {
-		return new Expr();
-	};
-	
-	/**
-	 * Constructor for a SQL expression clause.
-	 * 
-	 * @constructor
-	 */
-	function Expr() {
-		this._tree = [];
-	};
-	
-	Expr.prototype = new Clause();
-	
-	/**
-	 * Adds a literal value to the expression tree. This does not directly add the value, but adds
-	 * {Param} to the tree that is later bound to the value just before execution. This
-	 * avoids problems with SQL injection attacks and other bad things.
-	 * 
-	 * @param {Object} value - A literal value.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.literal = function(value) {
-		
-		if (value === Egon.LITERAL_VALUE.NULL) {
-			this._tree.push(Egon.LITERAL_VALUE.NULL);
-		} else if (value === Egon.LITERAL_VALUE.CURRENT_TIME) {
-			this._tree.push(Egon.LITERAL_VALUE.CURRENT_TIME);
-		}
-		else if (value === Egon.LITERAL_VALUE.CURRENT_DATE) {
-			this._tree.push(Egon.LITERAL_VALUE.CURRENT_DATE);
-		}
-		else if (value === Egon.LITERAL_VALUE.CURRENT_TIMESTAMP) {
-			this._tree.push(Egon.LITERAL_VALUE.CURRENT_TIMESTAMP);
-		} else {
-			this._tree.push(new Param(value));	
-		}
-		
-		return this;
-	};
-	
-	/**
-	 * Adds a column name to the expression tree.
-	 * 
-	 * @param {String} columnName - A column name.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.column = function(columnName) {
-		this._tree.push(columnName);
-		
-		return this;
-	};
-	
-	/**
-	 * Adds the 'NOT' operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} [operand] - The operand to the binary operator.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.not = function(operand) {
-		return this._binaryOperator(Egon.OPERATORS.NOT, operand);
-	};
-	
-	/**
-	 * Begins a grouping. 
-	 * 
-	 * This adds a '(' onto the expression tree.
-	 * 
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.begin = function() {
-		this._tree.push("(");
-		
-		return this;
-	};
-	
-	/**
-	 * Ends a grouping.
-	 * 
-	 * This adds a ')' onto the expression tree.
-	 * 
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.end = function() {
-		this._tree.push(")");
-		
-		return this;
-	};
-	
-	/**
-	 * Adds a binary operator and its right operand to the tree. The left operand
-	 * is assumed to already be attached to the tree.
-	 * 
-	 * @param {OPERATORS} operator - The operator.
-	 * @param {Expr|String|Number} rightOperant - The right operand
-	 * @return {Expr} This SQL expression clause.  
-	 */
-	Expr.prototype._binaryOperator = function(operator, rightOperand) {
-		this._tree.push(" " + operator + " ");
-		
-		if (rightOperand !== undefined) {
-			if (rightOperand instanceof Expr) {
-				this._tree.push(rightOperand);
-			} else {
-				this._tree.push(new Param(rightOperand));
-			}
-		}
-		
-		return this;
-	};
-	
-	/**
-	 * Adds the '||' concatenate operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} rightOperand - The right operand to the binary operator. 
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.concat = function(rightOperand) {
-		return this._binaryOperator(Egon.OPERATORS.CONCAT, rightOperand);
-	};
-	
-	/**
-	 * Adds the '*' multiply operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} rightOperand - The right operand to the binary operator. 
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.multiply = function(rightOperand) {
-		return this._binaryOperator(Egon.OPERATORS.MULTIPLY, rightOperand);
-	};
-	
-	/**
-	 * Adds the '*' multiply operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} rightOperand - The right operand to the binary operator. 
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.times = function(rightOperand) {
-		return this._binaryOperator(Egon.OPERATORS.MULTIPLY, rightOperand);
-	};
-	
-	/**
-	 * Adds the '/' divide operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} rightOperand - The right operand to the binary operator. 
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.divide = function(rightOperand) {
-		return this._binaryOperator(Egon.OPERATORS.DIVIDE, rightOperand);
-	};
-	
-	/**
-	 * Adds the '/' divide operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} rightOperand - The right operand to the binary operator. 
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.dividedBy = function(rightOperand) {
-		return this._binaryOperator(Egon.OPERATORS.DIVIDE, rightOperand);
-	};
-	
-	/**
-	 * Adds the '%' modulo operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} rightOperand - The right operand to the binary operator. 
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.modulo = function(rightOperand) {
-		return this._binaryOperator(Egon.OPERATORS.MODULO, rightOperand);
-	};
-	
-	/**
-	 * Adds the '%' modulo operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} rightOperand - The right operand to the binary operator. 
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.remainder = function(rightOperand) {
-		return this._binaryOperator(Egon.OPERATORS.MODULO, rightOperand);
-	};
-	
-	/**
-	 * Adds the '+' add operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} rightOperand - The right operand to the binary operator. 
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.add = function(rightOperand) {
-		return this._binaryOperator(Egon.OPERATORS.ADD, rightOperand);
-	};
-	
-	/**
-	 * Adds the '-' subtract operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} rightOperand - The right operand to the binary operator. 
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.subtract = function(rightOperand) {
-		return this._binaryOperator(Egon.OPERATORS.SUBTRACT, rightOperand);
-	};
-	
-	/**
-	 * Adds the '<' less than operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.lessThan = function(rightOperand) {
-		return this._binaryOperator(Egon.OPERATORS.LESS_THAN, rightOperand);
-	};
-	
-	/**
-	 * Adds the '<=' less than equals operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.lessThanEquals = function(rightOperand) {
-		return this._binaryOperator(Egon.OPERATORS.LESS_THAN_EQUALS, rightOperand);
-	};
-	
-	/**
-	 * Adds the '>' greater than operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.greaterThan = function(rightOperand) {
-		return this._binaryOperator(Egon.OPERATORS.GREATER_THAN, rightOperand);
-	};
-	
-	/**
-	 * Adds the '>=' greater than equals operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.greaterThanEquals = function(rightOperand) {
-		return this._binaryOperator(Egon.OPERATORS.GREATER_THAN_EQUALS, rightOperand);
-	};
-	
-	/**
-	 * Adds the '=' or '==' equals operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} rightOperand - The right operand to the binary operator. 
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.equals = function(rightOperand) {
-		return this._binaryOperator(Egon.OPERATORS.EQUALS, rightOperand);
-	};
-	
-	/**
-	 * Adds the '!=' not equals operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.notEquals = function(rightOperand) {
-		return this._binaryOperator(Egon.OPERATORS.NOT_EQUALS, rightOperand);
-	};
-	
-	/**
-	 * Adds the 'AND' operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.and = function(rightOperand) {
-		return this._binaryOperator(Egon.OPERATORS.AND, rightOperand);
-	};
-	
-	/**
-	 * Adds the 'OR' operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.or = function(rightOperand) {
-		return this._binaryOperator(Egon.OPERATORS.OR, rightOperand);
-	};
-	
-	/**
-	 * Adds the 'CAST' function to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} expr - The object to cast.
-	 * @param {TypeConstant} toType - The type to convert or cast the expr to.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.cast = function(expr, toType) {
-		this._tree.push(" CAST ");
-		this.begin();
-		this._tree.push(expr);
-		this._tree.push(" AS ");
-		this._tree.push(toType.dbType);
-		this.end();
-		
-		return this;
-	};
-	
-	/**
-	 * Adds the 'COLLATE' function to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} expr - The object to collate.
-	 * @param {CollateConstant} collation - The collation.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.collate = function(expr, collation) {
-		this._tree.push(expr);
-		this._tree.push(collation);
-		
-		return this;
-	};
-	
-	/**
-	 * Adds the 'LIKE' operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.like = function(rightOperand) {
-		return this._binaryOperator(Egon.OPERATORS.LIKE, rightOperand);
-	};
-	
-	/**
-	 * Adds the 'GLOB' operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.glob = function(rightOperand) {
-		return this._binaryOperator(Egon.OPERATORS.GLOB, rightOperand);
-	};
-		
-	/**
-	 * Adds the 'REGEXP' operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.regexp = function(rightOperand) {
-		return this._binaryOperator(Egon.OPERATORS.REGEXP, rightOperand);
-	};
-	
-	/**
-	 * Adds the 'MATCH' operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.match = function(rightOperand) {
-		return this._binaryOperator(Egon.OPERATORS.MATCH, rightOperand);
-	};
-	
-	/**
-	 * Adds the 'ESCAPE' clause to the expression tree.
-	 * 
-	 * @param {Expr} expr - The escape expression.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.escape = function(expr) {
-		this._tree.push(" ESCAPE ");
-		this._tree.push(expr);
-		
-		return this;
-	};
-	
-	/**
-	 * Adds the 'ISNULL' cluase to the expression tree.
-	 * 
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.isNull = function() {
-		this._tree.push(" ISNULL");
-		
-		return this;
-	};
-	
-	/**
-	 * Adds the 'NOTNULL' cluase to the expression tree.
-	 * 
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.notNull = function() {
-		this._tree.push(" NOTNULL");
-		
-		return this;
-	};
-	
-	/**
-	 * Adds the 'IS' operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.is = function(rightOperand) {
-		return this._binaryOperator(Egon.OPERATORS.IS, rightOperand);
-	};
-	
-	/**
-	 * Adds the 'IS NOT' operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.isNot = function(rightOperand) {
-		return this._binaryOperator(Egon.OPERATORS.IS_NOT, rightOperand);
-	};
-	
-	/**
-	 * Adds the 'IN' operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.in_ = function(rightOperand) {
-		return this._binaryOperator(Egon.OPERATORS.IN, rightOperand);
-	};
-	
-	/**
-	 * Adds the 'BETWEEN' clause to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} leftOperand - The left operand.
-	 * @param {Expr|String|Number} rightOperand - The right operand.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.between = function(leftOperand, rightOperand) {
-		this._tree.push(" BETWEEN ");
-		this._tree.push(leftOperand);
-		this._tree.push(" AND ");
-		this._tree.push(rightOperand);
-		
-		return this;
-	};
-	
-	/**
-	 * Adds the 'EXISTS' clause to the expression tree.
-	 * 
-	 * @param {Clause} select - A select clause.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.exists = function(select) {
-		this._tree.push(" EXISTS ");
-		this.begin();
-		this._tree.push(select);
-		this.end();
-		
-		return this;
-	};
-	
-	/**
-	 * Adds the 'CASE' clause to the expression tree.
-	 * 
-	 * @param {Expr} expr - The expression.
-	 * @param {Expr} whenExpr - The when expression.
-	 * @param {Expr} thenExpr - The then expression.
-	 * @param {Expr} elseExpr - The else expression.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.case_ = function(expr, whenExpr, thenExpr, elseExpr) {
-		this._tree.push(" CASE ");
-		this._tree.push(expr);
-		this._tree.push(" WHEN ");
-		this._tree.push(whenExpr);
-		this._tree.push(" THEN ");
-		this._tree.push(thenExpr);
-		this._tree.push(" ELSE ");
-		this._tree.push(elseExpr);
-		this._tree.push(" END");
-		
-		return this;
-	}; 
-	
-	/**
-	 * Adds the 'raise-function' clause to the expression tree.
-	 * 
-	 * @param {RaiseFunctionsConstant} func - The raise function.
-	 * @param {String} errorMessage - The error message.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.raise = function(func, errorMessage) {
-		this._tree.push(" RAISE ");
-		this.begin();
-		this._tree.push(func);
-		
-		if (func !== Egon.RAISE_FUNCTIONS.IGNORE) {
-			this._tree.push(", ");
-			this._tree.push(errorMessage);
-		}
-		
-		this.end();
-		
-		return this;
-	};
-	
-	/**
-	 * Adds an expression to this expression.
-	 * 
-	 * @param {Expr} expr - An SQL expression clause.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.expr = function(expr) {
-		this._tree.push(expr);
-		
-		return this;
-	};
-	
-	/**
-	 * Constructor for an Insert SQL statement.
-	 * 
-	 * @constructor
-	 */
-	function Insert() {
-		this._tree = [];
-		this._tree.push("INSERT");
-	};
-	
-	Insert.prototype = new Clause();
-	
-	/**
-	 * Adds the 'INTO' clause to this 'INSERT' SQL statement.
-	 * 
-	 * @param {String} tableName - The table name.
-	 * @returns {Insert} This SQL 'INSERT' clause.
-	 */
-	Insert.prototype.into = function(tableName) {
-		this._tree.push(" INTO ");
-		this._tree.push(tableName);
-		
-		return this;
-	};
-	
-	/**
-	 * Adds the 'column-name' clause to this 'INSERT' SQL statement.
-	 * 
-	 * @param {Array} columnNames - The column names as {String}.
-	 * @returns {Insert} This 'INSERT' SQL statement.
-	 */
-	Insert.prototype.columns = function(columnNames) {
-		var stopCount = columnNames.length - 1,
-			i;
-		
-		this._tree.push(" (");
-				
-		for (i = 0; i < stopCount; i += 1) {
-			this._tree.push(columnNames[i]);
-			this._tree.push(", ");
-		}
-		
-		this._tree.push(columnNames[i]);
-		this._tree.push(")");
-		
-		return this;
-	};
-	
-	/**
-	 * Adds the 'VALUES' clause to this 'INSERT' SQL statement.
-	 * 
-	 * The keys in the {Object} literal will be used as the named bind-parameters. 
-	 * 
-	 * @param {Object} values - An object literal with the keys as the property names for the columns in the table. Value of the property in the object literal is the value to insert in the table for the column.
-	 * @returns {Insert} This SQL statement.
-	 */
-	Insert.prototype.values = function(values) {
-		var key,
-			keys,
-			count,
-			i;
-		
-		this._tree.push(" VALUES (");
-		
-		keys = Object.keys(values);
-		count = keys.length - 1;
-			
-		for (i = 0; i < count; i += 1) {
-			key = keys[i];
-			this._tree.push(new Param(values[key], key));
-			this._tree.push(", ");
-		}
-			
-		key = keys[i];
-		this._tree.push(new Param(values[key], key));
-		this._tree.push(")");
-		
-		return this;
-	};
-	
-	/**
-	 * Constructor for the 'UPDATE' clause.
-	 * 
-	 * @constructor
-	 * 
-	 * @param {String} tableName - The name of a table to update.
-	 */
-	function Update(tableName) {
-		this._tree = [];
-		this._tree.push("UPDATE");
-		this._tree.push(" " + tableName);
-	};
-	
-	Update.prototype = new Clause();
-	
-	/**
-	 * Adds the 'SET' clauses to this 'UPDATE' SQL clause.
-	 * 
-	 * The column names will be used as the named bind parameters.
-	 * 
-	 * @param {Object} columns - An object literal with the keys as the column names and the values as the values to update. 
-	 * @returns {Update} This SQL clause.
-	 */
-	Update.prototype.set = function(columns) {
-		var keys = Object.keys(columns),
-			count = keys.length - 1,
-			columnName,
-			i;
-		
-		this._tree.push(" SET ");
-		
-		for (i = 0; i < count; i += 1) {
-			columnName = keys[i];
-			this._tree.push(columnName);
-			this._tree.push(" = ");
-			this._tree.push(new Param(columns[columnName], columnName));
-			this._tree.push(", ");
-		}
-		
-		columnName = keys[i];
-		this._tree.push(columnName);
-		this._tree.push(" = ");
-		this._tree.push(new Param(columns[columnName], columnName));
-		
-		return this;
-	};
-	
-	/**
-	 * Adds a 'WHERE' clause to this 'UPDATE' SQL clause.
-	 * 
-	 * @param {Expr} expr - A SQL expression clause.
-	 * @returns {Update} This SQL clause.
-	 */
-	Update.prototype.where = function(expr) {
-		this._tree.push(" WHERE ");
-		this._tree.push(expr);
-		
-		return this;
-	};
-	
-	/**
-	 * The constructor for the 'DELETE' SQL clause.
-	 * 
-	 * @constructor
-	 */
-	function Delete() {
-		this._tree.push("DELETE");
-	};
-	
-	Delete.prototype = new Clause();
-	
-	/**
-	 * Adds the 'FROM' clause to this 'DELETE' SQL clause along with the table name.
-	 * 
-	 * @param {String} tableName - A table name.
-	 * @returns {Delete} This 'DELETE' SQL clause.
-	 */
-	Delete.prototype.from = function(tableName) {
-		this._tree.push(" FROM ");
-		this._tree.push(tableName);
-		
-		return this;
-	};
-	
-	/**
-	 * Adds the 'WHERE' clause to this 'DELETE' SQL clause.
-	 * 
-	 * @param {Expr} expr - A SQL expression clause.
-	 * @returns {Delete} This 'DELETE' SQL clause.
-	 */
-	Delete.prototype.where = function(expr) {
-		this._tree.push(" WHERE ");
-		this._tree.push(expr);
-		
-		return this;
 	};
 	
 	// May want to change this to MappedClass as a name for the constructor
@@ -1581,5 +617,40 @@ var Egon = {};
 		return Class;
 	};
 	
-	Egon.Class = Class;
+	/**
+	 * Factory method for creating tables.
+	 * 
+	 * @param {String} name - The table name.
+	 * @param {Object} [schema] - An object literal the values of the properties should be Column objects and the keys will be added as properties to this table.
+	 * @see {Table}
+	 */
+	Egon.table = function(name, schema) {
+		return new Table(name, schema);
+	};
+	
+	/**
+	 * Factory method for creating columns.
+	 * 
+	 * @param {String} name - The column name.
+	 * @param {TypeConstant} type - The column type.
+	 * @param {OptionsConstant} [options] - An object literal with keys from the {ColumnOptions} constants.
+	 * @see {Column}
+	 */
+	Egon.column = function(name, type, options) {
+		return new Column(name, type, options);
+	};
+	
+	/**
+	 * Factory method for creating foreign keys.
+	 * 
+	 * @param {String} name - The name of the constraint.
+	 * @param {Table} parent - The parent or foreign table.
+	 * @param {Array} parentColumns - The columns in the parent, or foreign, table.
+	 * @param {String} [onDelete] - A {ForeignKeyAction} constants.
+	 * @param {String} [onUpdate] - A {ForeignKeyAction} constants.
+	 * @see {ForeignKey}
+	 */
+	Egon.foreignKey = function(name, parent, parentColumns, onDelete, onUpdate) {
+		return new ForeignKey(name, parent, parentColumns, onDelete, onUpdate);
+	};
 }());
