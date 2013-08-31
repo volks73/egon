@@ -116,6 +116,21 @@ var Spengler = {};
 	};
 	
 	/**
+	 * The possible join operations for a 'SELECT' clause.
+	 * 
+	 * @typedef (String) JoinsConstant.
+	 * @readonly
+	 * @constant
+	 */
+	Spengler.JOINS = {
+		NATURAL: 'NATURAL',
+		LEFT: 'LEFT',
+		OUTER: 'OUTER',
+		INNER: 'INNER',
+		CROSS: 'CROSS',
+	};
+	
+	/**
 	 * Creates a bind parameter object.
 	 * 
 	 * A bind parameter has a key, or placeholder, and a value. The value replaces the placeholder 
@@ -134,6 +149,11 @@ var Spengler = {};
 		this.key = key;
 	};
 	
+	/**
+	 * Creates a string representation.
+	 * 
+	 * @returns {String}
+	 */
 	Param.prototype.toString = function() {
 		var str = "{";
 		
@@ -176,6 +196,7 @@ var Spengler = {};
 	 * @constructor
 	 */
 	function Clause() {
+		// TODO: Add '_parent' attribute.
 		this._tree = [];
 	};
 	
@@ -255,6 +276,11 @@ var Spengler = {};
 		return DEFAULT_PARAM + suffix;
 	}
 	
+	/**
+	 * Creates a string representation.
+	 * 
+	 * @returns {String}
+	 */
 	Clause.prototype.toString = function() {
 		var str = '',
 			i;
@@ -915,6 +941,7 @@ var Spengler = {};
 	 * @constructor
 	 */
 	function Delete() {
+		this._tree = [];
 		this._tree.push("DELETE");
 	};
 	
@@ -946,28 +973,160 @@ var Spengler = {};
 		return this;
 	};
 	
-	// TODO: Add 'SELECT' clause.
+	// TODO: Add 'Whereable' prototype that extends the 'Clause' prototype and adds the 'where' function.
 	
 	/**
 	 * Constructor for the 'SELECT' clause.
 	 * 
 	 * @constructor
+	 * 
+	 * @param {Array} resultColumns - An array of strings and/or object literals with the keys as the alias for column names.
 	 */
-	function Select() {
+	function Select(resultColumns) {
 		this._tree = [];
+		this._tree.push("SELECT ");
+		
+		var count = resultColumns.length - 1,
+			i;
+		
+		for (i = 0; i < count; i += 1) {
+			this._addColumn(resultColumns[i]);
+			this._tree.push(", ");
+		}
+		
+		this._addColumn(resultColumns[i]);
 	};
 	
 	Select.prototype = new Clause();
 	
-	/**
-	 * Adds the columns to the expression tree.
-	 * 
-	 * @param {Array} columns - The column names.
-	 * @returns {Select} This SQL clause.
-	 */
-	Select.prototype.columns(columns) {
+	Select.prototype._addColumn = function(column) {
+		var keys,
+			key;
+	
+		if (typeof column === 'object') {
+			keys = Object.keys(column);
+			key = keys[0];
+			this._tree.push(column[key]);
+			this.as(key);
+		} else {
+			this._tree.push(column);
+		}
+	};
+	
+	// TODO: Create 'ResultColumn' prototype with functions related to result-column construction.
+	// TODO: Create 'JoinSource' prototype with functions related to join-source construction.
+	// TODO: Create 'SingleSource' prototype with functions related to single-source construction.
+	
+	Select.prototype.from = function(joinSource) {
+		this._tree.push(" FROM ");
+		this._singleSource(joinSource);
+		
 		return this;
 	};
+	
+	Select.prototype._singleSource = function(source) {
+		if (typeof value === 'string') {
+			this._tree.push(value);
+		} else {
+			this._tree.push("(");
+			this._tree.push(value);
+			this._tree.push(")");
+		}
+	};
+	
+	Select.prototype.indexedBy = function(indexName) {
+		this._tree.push(" INDEXED BY ");
+		this._tree.push(indexName);
+		
+		return this;
+	};
+	
+	Select.prototype.notIndexed = function() {
+		this._tree.push(" NOT INDEXED");
+		
+		return this;
+	};
+		
+	Select.prototype.as = function(alias) {
+		this._tree.push(" AS ");
+		this._tree.push(alias);
+		
+		return this;
+	};
+	
+	Select.prototype.natural = function() {
+		this._tree.push(" NATURAL");
+		
+		return this;
+	};
+	
+	Select.prototype.join = function(singleSource) {
+		this._tree.push(" JOIN");
+		this._singleSource(singleSource);
+		
+		return this;
+	};
+	
+	Select.prototype.leftJoin = function(singleSource) {
+		this._tree.push(" LEFT");
+		
+		return this.join(singleSource);
+	};
+	
+	Select.prototype.leftOuterJoin = function(singleSource) {
+		this._tree.push(" LEFT");
+		this._tree.push(" OUTER");
+		
+		return this.join(singleSource);
+	};
+	
+	Select.prototype.innerJoin = function(singleSource) {
+		this._tree.push(" INNER");
+		
+		return this.join(singleSource);
+	};
+	
+	Select.prototype.crossJoin = function(singleSource) {
+		this._tree.push(" CROSS");
+		
+		return this.join(singleSource);
+	};
+	
+	Select.prototype.on = function(expr) {
+		this._tree.push(" ON ");
+		this._tree.push(expr);
+		
+		return this;
+	};
+	
+	Select.prototype.using = function(columns) {
+		this._tree.push(" USING ");
+		this._tree.push("(");
+		
+		var count = columns.length - 1,
+			i;
+		
+		for (i = 0; i < count; i += 1) {
+			this._tree.push(columns[i]);
+			this._tree.push(", ");
+		}
+		
+		this._tree.push(columns[i]);
+		this._tree.push(")");
+		
+		return this;
+	};
+	
+	Select.prototype.where = function(expr) {
+		this._tree.push(" WHERE ");
+		this._tree.push(expr);
+		
+		return this;
+	};
+	
+	// TODO: Implement "GROUP BY" construction.
+	// TODO: Add 'ORDER BY' construction.
+	// TODO: Add 'LIMIT' construction.
 	
 	/**
 	 * A factory method for creating expressions.
@@ -1009,9 +1168,10 @@ var Spengler = {};
 	/**
 	 * Factory method for creating a 'SELECT' clause.
 	 * 
+	 * @param {Array} resultColumns - An array of strings and/or object literals with the keys as the alias for column names.
 	 * @returns {Select} A 'SELECT' clause.
 	 */
-	Spengler.select = function() {
-		return new Select();
+	Spengler.select = function(resultColumns) {
+		return new Select(resultColumns);
 	};
 }());

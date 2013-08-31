@@ -3,9 +3,6 @@ Components.utils.import("resource://gre/modules/FileUtils.jsm");
 Components.utils.import("resource://Egon/Spengler.js");
 Components.utils.import("resource://Egon/Egon.js");
 
-dump(Spengler);
-dump(Egon);
-
 var dbFile = FileUtils.getFile("Desk", ["Test", "test.sqlite"]);
 var dbConn = Services.storage.openDatabase(dbFile);
 
