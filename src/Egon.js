@@ -35,7 +35,7 @@
  * ***** END LICENSE BLOCK ***** */
 var EXPORTED_SYMBOLS = ["Egon"];
 
-//TODO: Create build script
+// TODO: Create build script
 // TODO: Create build script for different deployment environments: Mozilla JavaScript Module (JSM), node.js, browser, etc.
 // TODO: Create build script option to append Egon to Spengler and deploy as single file.
 
@@ -156,15 +156,15 @@ var Egon = {};
 	};
 		
 	/**
-	 * Executes a SQL expression. Calls the 'compile' function of the expression,
+	 * Executes a SQL statement. Calls the 'compile' function of the statment,
 	 * binds the parameters, and asynchronously executes.
 	 * 
-	 * @param {Clause} clause - A SQL clause.
+	 * @param {Statement} statement - A SQL statement.
 	 * @param {mozIStorageStatementCallback} [callback] - A callback.
 	 */
 	// TODO: Update documentation with description of callback.
-	Egon.execute = function(clause, callback) {
-		var compiled = clause.compile(),
+	Egon.execute = function(statement, callback) {
+		var compiled = statement.compile(),
 			stmtParams,
 			bindings,
 			stmt,
@@ -185,7 +185,7 @@ var Egon = {};
 	};
 	
 	/**
-	 * Constructor for a SQL database table.
+	 * Creates a SQL database table.
 	 * 
 	 * @constructor
 	 * 
@@ -351,7 +351,7 @@ var Egon = {};
 	// TODO: Add support for creating indices for a table on a column.
 	
 	/**
-	 * Constructor for a SQL database column.
+	 * Creates a SQL database column.
 	 * 
 	 * The <code>options</code> parameter for this constructor can have any or all of the following
 	 * properties: primaryKey, autoIncrement, notNull, unique, defaultValue, collate, foreignKey. A
@@ -510,7 +510,7 @@ var Egon = {};
 	};
 	
 	/**
-	 * Constructor for a Foreign Key.
+	 * Creates a SQL foreign key.
 	 * 
 	 * @constructor
 	 * 
