@@ -305,7 +305,7 @@ var Egon = {};
 			columnNames.push(that[columnKey].name);
 		}
 		
-		return Spengler.insert().into(this._name).columns(columnNames).values(values);
+		return Spengler.insert(this._name).columns(columnNames).values(values);
 	};
 	
 	/**
@@ -316,11 +316,14 @@ var Egon = {};
 	 */
 	Table.prototype.update = function(values) {
 		var that = this,
-			columns = {},
+			columns = [],
+			column,
 			columnKey;
 			
 		for (columnKey in values) {
-			columns[that[columnKey].name] = values[columnKey];
+			column = Object.create({});
+			column[that[columnKey].name] = values[columnKey];
+			columns.push(column);
 		}
 		
 		return Spengler.update(this._name).set(columns);
@@ -332,11 +335,7 @@ var Egon = {};
 	 * @returns {Delete} A 'DELETE' SQL clause.
 	 */
 	Table.prototype.remove = function() {
-		var _delete = Spengler.remove();
-		
-		_delete.from(this._name);
-		
-		return _delete;
+		return Spengler.remove(this._name);		
 	};
 	
 	// TODO: Add support for creating indices for a table on a column.

@@ -1021,6 +1021,8 @@ var Spengler = {};
 		}
 	};
 	
+	// TODO: Implement alternative sources for the 'FROM' clause instead of just a string for the table name. This means other select statments, which should be wrapped in paranthesis and aliasable.
+	
 	/**
 	 * Adds the 'FROM' clause to the expression tree.
 	 * 
@@ -1109,7 +1111,6 @@ var Spengler = {};
 		return this;
 	};
 	
-	// TODO: Implement 'select-stmt' for tableName value in 'from' function.
 	// TODO: Implement more flexible join construction mechanism.
 	// TODO: Implement "GROUP BY" construction.
 	// TODO: Add 'ORDER BY' construction.
