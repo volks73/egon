@@ -116,22 +116,7 @@ var Spengler = {};
 	};
 	
 	/**
-	 * The possible join operations for a 'SELECT' clause.
-	 * 
-	 * @typedef (String) JoinsConstant.
-	 * @readonly
-	 * @constant
-	 */
-	Spengler.JOINS = {
-		NATURAL: 'NATURAL',
-		LEFT: 'LEFT',
-		OUTER: 'OUTER',
-		INNER: 'INNER',
-		CROSS: 'CROSS',
-	};
-	
-	/**
-	 * Creates a bind parameter object.
+	 * Creates a new bind parameter object.
 	 * 
 	 * A bind parameter has a key, or placeholder, and a value. The value replaces the placeholder 
 	 * whening binding the parameters to a SQL statement. This prevents SQL injection attacks because
@@ -168,7 +153,7 @@ var Spengler = {};
 	};
 	
 	/**
-	 * Constructor for a compiled object. This is a compiled clause.
+	 * Creates a new SQL compiled statement.
 	 * 
 	 * @constructor
 	 * 
@@ -191,7 +176,7 @@ var Spengler = {};
 	
 	
 	/**
-	 * Constructor for the parent object for all SQL clauses.
+	 * Creates a new SQL clause.
 	 * 
 	 * @constructor
 	 */
@@ -222,11 +207,38 @@ var Spengler = {};
 	};
 	
 	/**
+	 * Creates a string representation.
+	 * 
+	 * @returns {String}
+	 */
+	Clause.prototype.toString = function() {
+		var str = '',
+			i;
+		
+		for (i = 0; i < this._tree.length; i += 1) {
+			str += this._tree[i].toString();
+		}
+		
+		return str;
+	};
+	
+	/**
+	 * Creates a new SQL statement.
+	 * 
+	 * @constructor.
+	 */
+	function Statement() {
+		this._tree = [];
+	};
+	
+	Statement.prototype = new Clause();
+	
+	/**
 	 * Compiles the clause ready for parameter binding and execution.
 	 * 
 	 * @returns {Compiled} A compiled object that contains the SQL string and the parameters for binding.
 	 */
-	Clause.prototype.compile = function() {
+	Statement.prototype.compile = function() {
 		var sql = '',
 			tree = this.tree(),
 			params = {},
@@ -277,23 +289,7 @@ var Spengler = {};
 	}
 	
 	/**
-	 * Creates a string representation.
-	 * 
-	 * @returns {String}
-	 */
-	Clause.prototype.toString = function() {
-		var str = '',
-			i;
-		
-		for (i = 0; i < this._tree.length; i += 1) {
-			str += this._tree[i].toString();
-		}
-		
-		return str;
-	};
-	
-	/**
-	 * Constructor for a SQL expression clause.
+	 * Creates a new SQL expression clause.
 	 * 
 	 * @constructor
 	 */
@@ -793,32 +789,48 @@ var Spengler = {};
 		this._tree.push(expr);
 		
 		return this;
-	};	
+	};
 	
 	/**
-	 * Constructor for an Insert SQL statement.
+	 * Creates a new 'Whereable' object.
+	 * 
+	 * A 'Whereable' object is any SQL statement that can have a 'WHERE' clause.
 	 * 
 	 * @constructor
 	 */
-	function Insert() {
+	function Whereable() {
 		this._tree = [];
-		this._tree.push("INSERT");
 	};
 	
-	Insert.prototype = new Clause();
+	Whereable.prototype = new Statement();
 	
 	/**
-	 * Adds the 'INTO' clause to this 'INSERT' SQL statement.
+	 * Adds a 'WHERE' clause to this SQL clause.
 	 * 
-	 * @param {String} tableName - The table name.
-	 * @returns {Insert} This SQL 'INSERT' clause.
+	 * @param {Expr} expr - A SQL expression clause.
+	 * @returns {Clause} This SQL clause.
 	 */
-	Insert.prototype.into = function(tableName) {
-		this._tree.push(" INTO ");
-		this._tree.push(tableName);
+	Whereable.prototype.where = function(expr) {
+		this._tree.push(" WHERE ");
+		this._tree.push(expr);
 		
 		return this;
 	};
+	
+	/**
+	 * Creates a new SQL 'INSERT' statement.
+	 * 
+	 * @constructor
+	 * 
+	 * @param {String} tableName - The table name.
+	 */
+	function Insert(tableName) {
+		this._tree = [];
+		this._tree.push("INSERT INTO ");
+		this._tree.push(tableName);
+	};
+	
+	Insert.prototype = new Statement();
 	
 	/**
 	 * Adds the 'column-name' clause to this 'INSERT' SQL statement.
@@ -876,7 +888,7 @@ var Spengler = {};
 	};
 	
 	/**
-	 * Constructor for the 'UPDATE' clause.
+	 * Creates a new SQL 'UPDATE' statement.
 	 * 
 	 * @constructor
 	 * 
@@ -884,11 +896,11 @@ var Spengler = {};
 	 */
 	function Update(tableName) {
 		this._tree = [];
-		this._tree.push("UPDATE");
-		this._tree.push(" " + tableName);
+		this._tree.push("UPDATE ");
+		this._tree.push(tableName);
 	};
 	
-	Update.prototype = new Clause();
+	Update.prototype = new Whereable();
 	
 	/**
 	 * Adds the 'SET' clauses to this 'UPDATE' SQL clause.
@@ -923,60 +935,23 @@ var Spengler = {};
 	};
 	
 	/**
-	 * Adds a 'WHERE' clause to this 'UPDATE' SQL clause.
-	 * 
-	 * @param {Expr} expr - A SQL expression clause.
-	 * @returns {Update} This SQL clause.
-	 */
-	Update.prototype.where = function(expr) {
-		this._tree.push(" WHERE ");
-		this._tree.push(expr);
-		
-		return this;
-	};
-	
-	/**
-	 * The constructor for the 'DELETE' SQL clause.
+	 * Creates a new SQL 'DELETE' statement.
 	 * 
 	 * @constructor
 	 */
-	function Delete() {
+	function Delete(tableName) {
 		this._tree = [];
-		this._tree.push("DELETE");
+		this._tree.push("DELETE FROM ");
+		this._tree.push(tableName);
 	};
 	
 	Delete.prototype = new Clause();
 	
-	/**
-	 * Adds the 'FROM' clause to this 'DELETE' SQL clause along with the table name.
-	 * 
-	 * @param {String} tableName - A table name.
-	 * @returns {Delete} This 'DELETE' SQL clause.
-	 */
-	Delete.prototype.from = function(tableName) {
-		this._tree.push(" FROM ");
-		this._tree.push(tableName);
-		
-		return this;
-	};
+	// TODO: Implement 'ORDER BY' for 'DELETE' statement.
+	// TODO: Implement 'LIMIT' and 'OFFSET' for 'DELETE' statement.	
 	
 	/**
-	 * Adds the 'WHERE' clause to this 'DELETE' SQL clause.
-	 * 
-	 * @param {Expr} expr - A SQL expression clause.
-	 * @returns {Delete} This 'DELETE' SQL clause.
-	 */
-	Delete.prototype.where = function(expr) {
-		this._tree.push(" WHERE ");
-		this._tree.push(expr);
-		
-		return this;
-	};
-	
-	// TODO: Add 'Whereable' prototype that extends the 'Clause' prototype and adds the 'where' function.
-	
-	/**
-	 * Constructor for the 'SELECT' clause.
+	 * Creates a new SQL 'SELECT' statement.
 	 * 
 	 * @constructor
 	 * 
@@ -989,109 +964,122 @@ var Spengler = {};
 		var count = resultColumns.length - 1,
 			i;
 		
-		for (i = 0; i < count; i += 1) {
-			this._addColumn(resultColumns[i]);
-			this._tree.push(", ");
+		if (count < 0) {
+			this._tree.push("*");
+		} else {
+			for (i = 0; i < count; i += 1) {
+				this._add(resultColumns[i]);
+				this._tree.push(", ");
+			}
+			
+			this._add(resultColumns[i]);	
 		}
-		
-		this._addColumn(resultColumns[i]);
 	};
 	
-	Select.prototype = new Clause();
+	Select.prototype = new Whereable();
 	
-	Select.prototype._addColumn = function(column) {
+	/**
+	 * Adds a value to the expression tree. If the value is an object with a single
+	 * key, then the key is used as an alias for the SQL source.
+	 * 
+	 * @param {Object|String} value - The value to add to the expression tree. Use an object literal with the key as the alias to implement an alias for SQL value.
+	 */
+	Select.prototype._add = function(value) {
 		var keys,
 			key;
 	
-		if (typeof column === 'object') {
-			keys = Object.keys(column);
+		if (typeof value === 'object') {
+			keys = Object.keys(value);
 			key = keys[0];
-			this._tree.push(column[key]);
-			this.as(key);
+			this._tree.push(value[key]);
+			this._tree.push(" AS ");
+			this._tree.push(key);
 		} else {
-			this._tree.push(column);
+			this._tree.push(alias);
 		}
 	};
 	
-	// TODO: Create 'ResultColumn' prototype with functions related to result-column construction.
-	// TODO: Create 'JoinSource' prototype with functions related to join-source construction.
-	// TODO: Create 'SingleSource' prototype with functions related to single-source construction.
-	
-	Select.prototype.from = function(joinSource) {
+	/**
+	 * Adds the 'FROM' clause to the expression tree.
+	 * 
+	 * @param {Object|String} tableName - The table name. Use an object literal with the key as the alias to implement an SQL alias.
+	 * @returns {Select} This SQL clause.
+	 */
+	Select.prototype.from = function(tableName) {
 		this._tree.push(" FROM ");
-		this._singleSource(joinSource);
+		this._alias(tableName);
 		
 		return this;
 	};
 	
-	Select.prototype._singleSource = function(source) {
-		if (typeof value === 'string') {
-			this._tree.push(value);
-		} else {
-			this._tree.push("(");
-			this._tree.push(value);
-			this._tree.push(")");
-		}
-	};
-	
-	Select.prototype.indexedBy = function(indexName) {
-		this._tree.push(" INDEXED BY ");
-		this._tree.push(indexName);
+	/**
+	 * Adds the 'JOIN' clause to the expression tree.
+	 * 
+	 * @param {Object|String} tableName - The table name. Use an object literal with the key as the alias to implement an SQL alias.
+	 * @returns {Select} This SQL clause.
+	 */
+	Select.prototype.join = function(tableName) {
+		this._tree.push(" JOIN ");
+		this._add(tableName);
 		
 		return this;
 	};
 	
-	Select.prototype.notIndexed = function() {
-		this._tree.push(" NOT INDEXED");
-		
-		return this;
-	};
-		
-	Select.prototype.as = function(alias) {
-		this._tree.push(" AS ");
-		this._tree.push(alias);
-		
-		return this;
-	};
-	
-	Select.prototype.natural = function() {
-		this._tree.push(" NATURAL");
-		
-		return this;
-	};
-	
-	Select.prototype.join = function(singleSource) {
-		this._tree.push(" JOIN");
-		this._singleSource(singleSource);
-		
-		return this;
-	};
-	
-	Select.prototype.leftJoin = function(singleSource) {
+	/**
+	 * Adds the 'LEFT JOIN' clause to the expression tree.
+	 * 
+	 * @param {Object|String} tableName - The table name. Use an object literal with the key as the alias to implement an SQL alias.
+	 * @returns {Select} This SQL clause.
+	 */
+	Select.prototype.leftJoin = function(tableName) {
 		this._tree.push(" LEFT");
 		
-		return this.join(singleSource);
+		return this.join(tableName);
 	};
 	
-	Select.prototype.leftOuterJoin = function(singleSource) {
+	/**
+	 * Adds the 'LEFT OUTER JOIN' clause to the expression tree.
+	 * 
+	 * @param {Object|String} tableName - The table name. Use an object literal with the key as the alias to implement an SQL alias.
+	 * @returns {Select} This SQL clause.
+	 */
+	Select.prototype.leftOuterJoin = function(tableName) {
 		this._tree.push(" LEFT");
 		this._tree.push(" OUTER");
 		
-		return this.join(singleSource);
+		return this.join(tableName);
 	};
 	
-	Select.prototype.innerJoin = function(singleSource) {
+	/**
+	 * Adds the 'INNER JOIN' clause to the expression tree.
+	 * 
+	 * @param {Object|String} tableName - The table name. Use an object literal with the key as the alias to implement an SQL alias.
+	 * @returns {Select} This SQL clause.
+	 */
+	Select.prototype.innerJoin = function(tableName) {
 		this._tree.push(" INNER");
 		
-		return this.join(singleSource);
+		return this.join(tableName);
 	};
 	
-	Select.prototype.crossJoin = function(singleSource) {
+	/**
+	 * Adds the 'CROSS JOIN' clause to the expression tree.
+	 * 
+	 * @param {Object|String} tableName - The table name. Use an object literal with the key as the alias to implement an SQL alias.
+	 * @returns {Select} This SQL clause.
+	 */
+	Select.prototype.crossJoin = function(tableName) {
 		this._tree.push(" CROSS");
 		
-		return this.join(singleSource);
+		return this.join(tableName);
 	};
 	
+	/**
+	 * Adds the 'ON' clause to the expression tree.
+	 * 
+	 * @param {Expr} expr - The SQL expression.
+	 * @returns {Select} This SQL clause.
+	 */
 	Select.prototype.on = function(expr) {
 		this._tree.push(" ON ");
 		this._tree.push(expr);
@@ -1099,37 +1087,14 @@ var Spengler = {};
 		return this;
 	};
 	
-	Select.prototype.using = function(columns) {
-		this._tree.push(" USING ");
-		this._tree.push("(");
-		
-		var count = columns.length - 1,
-			i;
-		
-		for (i = 0; i < count; i += 1) {
-			this._tree.push(columns[i]);
-			this._tree.push(", ");
-		}
-		
-		this._tree.push(columns[i]);
-		this._tree.push(")");
-		
-		return this;
-	};
-	
-	Select.prototype.where = function(expr) {
-		this._tree.push(" WHERE ");
-		this._tree.push(expr);
-		
-		return this;
-	};
-	
+	// TODO: Implement 'select-stmt' for tableName value in 'from' function.
+	// TODO: Implement more flexible join construction mechanism.
 	// TODO: Implement "GROUP BY" construction.
 	// TODO: Add 'ORDER BY' construction.
 	// TODO: Add 'LIMIT' construction.
 	
 	/**
-	 * A factory method for creating expressions.
+	 * Factory method for creating expressions.
 	 * 
 	 * @returns {Expr} A new Expr object.
 	 */
@@ -1138,38 +1103,38 @@ var Spengler = {};
 	};
 	
 	/**
-	 * Factory method for creating a 'INSERT' clause.
+	 * Factory method for creating a 'INSERT' statement.
 	 * 
-	 * @returns {Insert} An 'INSERT' clause.
+	 * @returns {Insert} A new 'INSERT' statement.
 	 */
-	Spengler.insert = function() {
-		return new Insert();
+	Spengler.insert = function(tableName) {
+		return new Insert(tableName);
 	};
 	
 	/**
-	 * Factory method for creating an 'UPDATE' clause.
+	 * Factory method for creating an 'UPDATE' statement.
 	 * 
 	 * @param {String} tableName - The table name.
-	 * @returns {Update} An 'UPDATE' clause.
+	 * @returns {Update} A new 'UPDATE' statement.
 	 */
 	Spengler.update = function(tableName) {
 		return new Update(tableName);
 	};
 	
 	/**
-	 * Factory method for creating a 'DELETE' clause.
+	 * Factory method for creating a 'DELETE' statement.
 	 * 
-	 * @returns {Delete} A 'DELETE' clause.
+	 * @returns {Delete} A new 'DELETE' statement.
 	 */
-	Spengler.remove = function() {
-		return new Delete();
+	Spengler.remove = function(tableName) {
+		return new Delete(tableName);
 	};
 	
 	/**
-	 * Factory method for creating a 'SELECT' clause.
+	 * Factory method for creating a 'SELECT' statement.
 	 * 
 	 * @param {Array} resultColumns - An array of strings and/or object literals with the keys as the alias for column names.
-	 * @returns {Select} A 'SELECT' clause.
+	 * @returns {Select} A new 'SELECT' statement.
 	 */
 	Spengler.select = function(resultColumns) {
 		return new Select(resultColumns);
