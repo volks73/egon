@@ -291,7 +291,7 @@ var Egon = {};
 	};
 
 	/**
-	 * Creates an {Insert} SQL clause to insert values into this table.
+	 * Creates a SQL {Insert} statement to insert values into this table.
 	 * 
 	 * @param {Object} values - An object literal with the keys as the property name for this table pointing to the columns.
 	 * @returns {Insert} An 'INSERT' SQL clause.
@@ -309,10 +309,10 @@ var Egon = {};
 	};
 	
 	/**
-	 * Creates an {Update} SQL clause to update values in this table.
+	 * Creates a SQL {Update} statement to update values in this table.
 	 * 
 	 * @param {Object} values - An object literal with the keys as the property name for this table pointing to the columns.
-	 * @returns {Update} A 'UPDATE' SQL clause.
+	 * @returns {Update} A SQL 'UPDATE' statement.
 	 */
 	Table.prototype.update = function(values) {
 		var that = this,
@@ -330,12 +330,22 @@ var Egon = {};
 	};
 	
 	/**
-	 * Creates a {Delete} SQL clause to delete values from this table.
+	 * Creates a SQL {DELETE} statement to delete values from this table.
 	 * 
-	 * @returns {Delete} A 'DELETE' SQL clause.
+	 * @returns {Delete} A SQL 'DELETE' statement.
 	 */
 	Table.prototype.remove = function() {
 		return Spengler.remove(this._name);		
+	};
+	
+	/**
+	 * Creates a SQL {SELECT} statement to select values from this table.
+	 *  
+	 * @param {Array} columns - Either an array of {String} or an array of {Object}. If {Array} of {String}, then elements are the column names. If {Array} of {Object}, then elements are objects with one property where the key is an alias and the value is the column name.
+	 * @returns {Select} A SQL 'SELECT' statement.
+	 */
+	Table.prototype.select = function(columns) {
+		return Spengler.select(columns).from(this._name);
 	};
 	
 	// TODO: Add support for creating indices for a table on a column.
