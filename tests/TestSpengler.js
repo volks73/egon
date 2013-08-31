@@ -18,3 +18,6 @@ console.log(update.compile().toString());
 
 console.log(select.toString());
 console.log(select.compile().toString());
+
+console.log(updateExpr.toString());
+console.log(selectExpr.toString());

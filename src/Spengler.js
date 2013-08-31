@@ -243,6 +243,7 @@ var Spengler = {};
 			tree = this.tree(),
 			params = {},
 			paramCount = 0,
+			tempKey,
 			node,
 			i;
 		
@@ -250,12 +251,14 @@ var Spengler = {};
 			node = tree[i];
 			if (node instanceof Param) {
 				if (!node.key) {
-					node.key = _generateParamKey(paramCount);
-					paramCount += 1;
+					tempKey = _generateParamKey(paramCount);
+					paramCount += 1;	
+				} else {
+					tempKey = node.key;
 				}
 				
-				sql += ":" + node.key;
-				params[node.key] = node.value;
+				sql += ":" + tempKey;
+				params[tempKey] = node.value;
 			} else {
 				sql += node;
 			}
