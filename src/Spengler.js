@@ -858,33 +858,43 @@ var Spengler = {};
 	/**
 	 * Adds the 'VALUES' clause to this 'INSERT' SQL statement.
 	 * 
-	 * The keys in the {Object} literal will be used as the named bind-parameters. 
-	 * 
-	 * @param {Object} values - An object literal with the keys as the property names for the columns in the table. Value of the property in the object literal is the value to insert in the table for the column.
+	 * @param {Array} values - The elements are either a {String} or an {Object}. An {Object} will have one property where the key will be used as the named parameter.
 	 * @returns {Insert} This SQL statement.
 	 */
 	Insert.prototype.values = function(values) {
-		var key,
-			keys,
-			count,
+		var count = values.length - 1,
 			i;
 		
 		this._tree.push(" VALUES (");
 		
-		keys = Object.keys(values);
-		count = keys.length - 1;
-			
 		for (i = 0; i < count; i += 1) {
-			key = keys[i];
-			this._tree.push(new Param(values[key], key));
+			this._values(values[i]);
 			this._tree.push(", ");
 		}
-			
-		key = keys[i];
-		this._tree.push(new Param(values[key], key));
+		
+		this._values(values[i]);
 		this._tree.push(")");
 		
 		return this;
+	};
+	
+	/**
+	 * Adds a value to the expression tree based on its type. This is used to implement named parameters.
+	 * 
+	 * @param {Object|String} value - A string is added as an unnamed parameter. An object literal takes the key as the named parameter. 
+	 */
+	Insert.prototype._values = function(value) {
+		var keys,
+			key;
+		
+		if (typeof value === 'object') {
+			keys = Object.keys(value);
+			key = keys[0];
+			
+			this._tree.push(new Param(value[key], key));	
+		} else {
+			this._tree.push(new Param(value));
+		}
 	};
 	
 	/**
@@ -907,31 +917,40 @@ var Spengler = {};
 	 * 
 	 * The column names will be used as the named bind parameters.
 	 * 
-	 * @param {Object} columns - An object literal with the keys as the column names and the values as the values to update. 
+	 * @param {Array} columns - An object literal with the keys as the column names and the values as the values to update. 
 	 * @returns {Update} This SQL clause.
 	 */
 	Update.prototype.set = function(columns) {
-		var keys = Object.keys(columns),
-			count = keys.length - 1,
-			columnName,
+		var count = columns.length - 1,
 			i;
 		
 		this._tree.push(" SET ");
 		
 		for (i = 0; i < count; i += 1) {
-			columnName = keys[i];
-			this._tree.push(columnName);
-			this._tree.push(" = ");
-			this._tree.push(new Param(columns[columnName], columnName));
+			this._set(columns[i]);
 			this._tree.push(", ");
 		}
 		
-		columnName = keys[i];
-		this._tree.push(columnName);
-		this._tree.push(" = ");
-		this._tree.push(new Param(columns[columnName], columnName));
+		this._set(columns[i]);
 		
 		return this;
+	};
+	
+	/**
+	 * Adds a value to the expression tree based on its type. This is used to implement named parameters.
+	 * 
+	 * @param {Object|String} value - A string is added as an unnamed parameter. An object literal takes the key as the named parameter. 
+	 */
+	Update.prototype._set = function(column) {
+		var keys,
+			key;
+
+		keys = Object.keys(column);
+		key = keys[0];
+		
+		this._tree.push(key);
+		this._tree.push(" = ");
+		this._tree.push(new Param(column[key]));
 	};
 	
 	/**
@@ -995,7 +1014,7 @@ var Spengler = {};
 			this._tree.push(" AS ");
 			this._tree.push(key);
 		} else {
-			this._tree.push(alias);
+			this._tree.push(value);
 		}
 	};
 	
@@ -1007,7 +1026,7 @@ var Spengler = {};
 	 */
 	Select.prototype.from = function(tableName) {
 		this._tree.push(" FROM ");
-		this._alias(tableName);
+		this._add(tableName);
 		
 		return this;
 	};
