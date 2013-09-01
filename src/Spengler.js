@@ -35,1137 +35,632 @@
  * ***** END LICENSE BLOCK ***** */
 var EXPORTED_SYMBOLS = ["Spengler"];
 
+Components.utils.import("resource://Egon/SQL.js");
+
 /**
  * @namespace
  */
 var Spengler = {};
 
 (function() {
+	var dbConn;
+
+	// TODO: Add functions for formatting and returning values appropriate for interaction with the database.
+	// SQLite3 supported types: NULL, INTEGER, REAL, TEXT, and BLOB. Boolean values are handled as integers 0 = false, 1 = true
+	// Date and Time are handled as either TEXT using the ISO8601 string: YYYY-MM-DD HH:MM:SS.SSS, REAL as Julian day numbers,
+	// and INTEGERs as Unix Time, the number of seconds since 1970-01-01 00:00:00 UTC. See column affinity documentation with SQLite3.
 	/**
-	 * The possible values for the 'collate' option.
-	 * 
-	 * @typedef {String} CollateConstant
+	 * A mapping of known JavaScript variable types to SQLite column types.
+	 * @typedef {Object} TypeConstant
 	 * @readonly
 	 * @constant
 	 */
-	Spengler.COLLATE = {
-		BINARY: 'BINARY',
-		NOCASE: 'NOCASE',
-		RTRIM: 'RTRIM',	
+	Spengler.TYPES = {
+		NULL: {display: 'null', dbType: 'NULL', jsType: null},
+		TEXT: {display: 'text', dbType: 'TEXT', jsType: ''},
+		INTEGER: {display: 'integer', dbType: 'INTEGER', jsType: 0},
+		BOOLEAN: {display: 'boolean', dbType: 'INTEGER', jsType: false},
+		DECIMAL: {display: 'decimal', dbType: 'REAL', jsType: 0.0},
+		DATE: {display: 'date', dbType: 'INTEGER', jsType: new Date()},
 	};
 	
 	/**
-	 * The possible operators for an expression used in a 'WHERE' clause.
+	 * The column options. These are the possible properties for the 'option' object of the Column constructor.
 	 * 
-	 * @typedef {String} OperatorsConstant.
+	 * @typedef {String} OptionsConstant
 	 * @readonly
 	 * @constant
 	 */
-	Spengler.OPERATORS = {
-		CONCAT: '||',
-		MULTIPLY: '*',
-		DIVIDE: '/',
-		MODULO: '%',
-		ADD: '+',
-		SUBTRACT: '-',
-		LESS_THAN: '<',
-		LESS_THAN_EQUALS: '<=',
-		GREATER_THAN: '>',
-		GREATER_THAN_EQUALS: '>=',
-		EQUALS: '=',
-		NOT_EQUALS: '!=',
-		IS: 'IS',
-		IS_NOT: 'IS NOT',
-		IN: 'IN',
-		LIKE: 'LIKE',
-		GLOB: 'GLOB',
-		MATCH: 'MATCH',
-		REGEXP: 'REGEXP',
-		AND: 'AND',
-		OR: 'OR',
-		NOT: 'NOT',
-		COLLATE: '~',
+	Spengler.OPTIONS = {
+		PRIMARY_KEY: 'primaryKey',
+		AUTO_INCREMENT: 'autoIncrement',
+		NOT_NULL: 'notNull',
+		UNIQUE: 'unique',
+		DEFAULT_VALUE: 'defaultValue',
+		COLLATE: 'collate',
+		FOREIGN_KEY: 'foreignKey',
 	};
 	
 	/**
-	 * The possible literal values for an expression.
+	 * The possible values for the 'conflict' option.
 	 * 
-	 * @typedef {String} LiteralConstants.
+	 * @typedef {String} ConflictConstant
 	 * @readonly
 	 * @constant
 	 */
-	Spengler.LITERAL_VALUES = {
-		NULL: 'NULL',
-		CURRENT_TIME: 'CURRENT_TIME',
-		CURRENT_DATE: 'CURRENT_DATE',
-		CURRENT_TIMESTAMP: 'CURRENT_TIMESTAMP',
-	};
-	
-	/**
-	 * The possible raise function values for an expression.
-	 * 
-	 * @typedef {String} RaiseFunctionsConstant.
-	 * @readonly
-	 * @constant
-	 */
-	Spengler.RAISE_FUNCTIONS = {
-		IGNORE: 'IGNORE',
+	Spengler.CONFLICT = {
 		ROLLBACK: 'ROLLBACK',
 		ABORT: 'ABORT',
 		FAIL: 'FAIL',
+		IGNORE: 'IGNORE',
+		REPLACE: 'REPLACE',
 	};
 	
 	/**
-	 * Creates a new bind parameter object.
+	 * The possible values for the 'ON DELETE' and 'ON UPDATE' clauses of a Foreign Key SQL definition.
 	 * 
-	 * A bind parameter has a key, or placeholder, and a value. The value replaces the placeholder 
-	 * whening binding the parameters to a SQL statement. This prevents SQL injection attacks because
-	 * the value is never executed as SQL.
-	 * 
-	 * If a key is not provided, then a numeric, or index, key is used.
-	 * 
-	 * @constructor
-	 * 
-	 * @param {Object} value - The literal value.
-	 * @param {String} [key] - The key, or placeholder, for the literal value that will be replaced on binding.
+	 * @typedef {String} ActionsConstant
+	 * @readonly
+	 * @constant
 	 */
-	function Param(value, key) {
-		this.value = value;
-		this.key = key;
+	Spengler.ACTIONS = {
+		SET_NULL: 'SET NULL',
+		SET_DEFAULT: 'SET DEFAULT',
+		CASCADE: 'CASCADE',
+		RESTRICT: 'RESTRICT',
+		NO_ACTION: 'NO ACTION',
 	};
 	
 	/**
-	 * Creates a string representation.
+	 * The possible values for the 'DEFERRABLE' clause of a Foreign Key SQL definition.
 	 * 
-	 * @returns {String}
+	 * @typedef {String} DefersConstant
+	 * @readonly
+	 * @constant
 	 */
-	Param.prototype.toString = function() {
-		var str = "{";
+	Spengler.DEFERS = {
+		DEFERRED: 'INITIALLY DEFERRED',
+		IMMEDIATE: 'INITIALLY IMMEDIATE',
+	};
+	
+	/**
+	 * Initializes the object relational mapper.
+	 * 
+	 * @param {mozIStorageConnection} aDBConn - A connection to a database. 
+	 */
+	Spengler.init = function(aDBConn) {
+		dbConn = aDBConn;
+	};
+	
+	/**
+	 * Creates the tables in the database.
+	 * 
+	 * @param {Array} tables - An array with {Table} elements.
+	 */
+	Spengler.createAll = function(tables) {
+		var stmt,
+			i;
 		
-		if (this.key !== undefined) {
-			str += this.key; 
+		for (i = 0; i < tables.length; i += 1) {
+			stmt = dbConn.createAsyncStatement(tables[i].toString());
+			stmt.executeAsync();
 		}
-		else {
-			str += "?";
+	};
+		
+	/**
+	 * Executes a SQL statement. Calls the 'compile' function of the statement,
+	 * binds the parameters, and asynchronously executes.
+	 * 
+	 * @param {Statement} statement - A SQL statement.
+	 * @param {mozIStorageStatementCallback} [callback] - A callback.
+	 */
+	Spengler.execute = function(statement, callback) {
+		var compiled = statement.compile(),
+			stmtParams,
+			bindings,
+			stmt,
+			key;
+		
+		stmt = dbConn.createAsyncStatement(compiled.toString());
+		stmtParams = stmt.newBindingParamsArray();		
+		bindings = stmtParams.newBindingParams();
+		
+		for (key in compiled.params) {
+			bindings.bindByName(key, compiled.params[key]);
 		}
 		
-		return str + ": '" + this.value + "'}";
+		stmtParams.addParams(bindings);
+		stmt.bindParameters(stmtParams);
+		
+		stmt.executeAsync(callback);	
 	};
 	
 	/**
-	 * Creates a new SQL compiled statement.
-	 * 
-	 * @constructor
-	 * 
-	 * @param {String} sql - The SQL string compiled from a clause.
-	 * @param {Object} params - A literal with the properties as the keys for the named bind parameters and the property values as the binding values.
-	 */
+	* Creates a compiled statement.
+	*
+	* @constructor
+	*
+	* @param {String} sql - The SQL string ready for parameter binding and execution.
+	* @param {Object} params - A literal with the properties as the keys for the named bind parameters and the property values as the binding values.
+	*/
 	function Compiled(sql, params) {
 		this._sql = sql;
 		this.params = params;
 	};
-	
+
 	/**
-	 * The SQL string ready for parameter binding and execution.
-	 * 
-	 * @return {String} The SQL string.
-	 */
+	* The SQL string ready for parameter binding and execution.
+	*
+	* @return {String} The SQL string.
+	*/
 	Compiled.prototype.toString = function() {
 		return this._sql;
 	};
 	
-	
-	/**
-	 * Creates a new SQL clause.
-	 * 
-	 * @constructor
-	 */
-	function Clause() {
-		// TODO: Add '_parent' attribute.
-		this._tree = [];
-	};
-	
-	/**
-	 * Gets the full tree. The child clauses are added to this clause's tree.
-	 * 
-	 * @returns {Array} The full tree with child clauses.
-	 */
-	Clause.prototype.tree = function() {
-		var tree = [],
-			i;
-		
-		for (i = 0; i < this._tree.length; i += 1) {
-			if (this._tree[i] instanceof Clause) {
-				tree = tree.concat(this._tree[i].tree());
-			}
-			else {
-				tree.push(this._tree[i]);
-			}
-		}
-		
-		return tree;
-	};
-	
-	/**
-	 * Creates a string representation.
-	 * 
-	 * @returns {String}
-	 */
-	Clause.prototype.toString = function() {
-		var str = '',
-			i;
-		
-		for (i = 0; i < this._tree.length; i += 1) {
-			str += this._tree[i].toString();
-		}
-		
-		return str;
-	};
-	
-	/**
-	 * Creates a new SQL statement.
-	 * 
-	 * @constructor.
-	 */
 	function Statement() {
-		this._tree = [];
+		this.clause;
 	};
 	
-	Statement.prototype = new Clause();
-	
-	/**
-	 * Compiles the clause ready for parameter binding and execution.
-	 * 
-	 * @returns {Compiled} A compiled object that contains the SQL string and the parameters for binding.
-	 */
 	Statement.prototype.compile = function() {
 		var sql = '',
-			tree = this.tree(),
+			tree = this.clause.tree(),
 			params = {},
 			paramCount = 0,
-			tempKey,
 			node,
 			i;
-		
+	
 		for (i = 0; i < tree.length; i += 1) {
 			node = tree[i];
+			
 			if (node instanceof Param) {
 				if (!node.key) {
-					tempKey = _generateParamKey(paramCount);
-					paramCount += 1;	
-				} else {
-					tempKey = node.key;
+					node.key = _generateParamKey(paramCount);
+					paramCount += 1;
 				}
-				
-				sql += ":" + tempKey;
-				params[tempKey] = node.value;
+	
+				sql += ":" + node.key;
+				params[node.key] = node.value;
 			} else {
 				sql += node;
 			}
 		}
-		
+
 		return new Compiled(sql, params);
 	};
 	
 	/**
-	 * Generates a named parameter key based on the current number of parameters.
-	 * 
-	 * A named parameter is created using the following pattern: 'paramA', 'paramB', 
-	 * 'paramC', ... 'paramAA', 'paramBB', ... 'paramAAA' and so on.
-	 * 
-	 * @param {Integer} paramCount - The current number of parameters.
-	 */
+	* Generates a named parameter key based on the current number of parameters.
+	*
+	* A named parameter is created using the following pattern: 'paramA', 'paramB',
+	* 'paramC', ... 'paramAA', 'paramBB', ... 'paramAAA' and so on.
+	*
+	* @param {Integer} paramCount - The current number of parameters.
+	*/
 	function _generateParamKey(paramCount) {
 		var DEFAULT_PARAM = "param",
 			charCode = 65 + (paramCount % 26),
 			repeat = paramCount / 26,
 			suffix,
 			i;
-		
+	
 		suffix = String.fromCharCode(charCode);
-		
+	
 		for (i = 1; i < repeat; i += 1) {
 			suffix = String.fromCharCode(charCode);
 		}
-		
+	
 		return DEFAULT_PARAM + suffix;
-	}
-	
+	};
+		
 	/**
-	 * Creates a new SQL expression clause.
+	 * Creates a SQL database table.
 	 * 
 	 * @constructor
-	 */
-	function Expr() {
-		this._tree = [];
-	};
-	
-	Expr.prototype = new Clause();
-	
-	/**
-	 * Adds a literal value to the expression tree. This does not directly add the value, but adds
-	 * {Param} to the tree that is later bound to the value just before execution. This
-	 * avoids problems with SQL injection attacks and other bad things.
 	 * 
-	 * @param {Object} value - A literal value.
-	 * @returns {Expr} This SQL expression clause.
+	 * @param {String} name - The name of this table.
+	 * @param {Object} [schema] - An object literal the values of the properties should be Column objects and the keys will be added as properties to this table. 
 	 */
-	Expr.prototype.literal = function(value) {
+	function Table(name, schema) {
+		var that = this,
+			keys,
+			i;
+	
+		this._name = name;
 		
-		if (value === Spengler.LITERAL_VALUE.NULL) {
-			this._tree.push(Spengler.LITERAL_VALUE.NULL);
-		} else if (value === Spengler.LITERAL_VALUE.CURRENT_TIME) {
-			this._tree.push(Spengler.LITERAL_VALUE.CURRENT_TIME);
+		if (typeof schema !== 'undefined') {
+			keys = Object.keys(schema);
+			
+			for (i = 0; i < keys.length; i += 1) {
+				(function() {
+					Object.defineProperty(that, keys[i], {
+						value: schema[key],
+						writable: true,
+						enumerable: true,
+						configurable: true,
+					});
+				}());
+			}
 		}
-		else if (value === Spengler.LITERAL_VALUE.CURRENT_DATE) {
-			this._tree.push(Spengler.LITERAL_VALUE.CURRENT_DATE);
-		}
-		else if (value === Spengler.LITERAL_VALUE.CURRENT_TIMESTAMP) {
-			this._tree.push(Spengler.LITERAL_VALUE.CURRENT_TIMESTAMP);
-		} else {
-			this._tree.push(new Param(value));	
-		}
-		
-		return this;
 	};
 	
 	/**
-	 * Adds a column name to the expression tree.
+	 * Gets the name of this table.
 	 * 
-	 * @param {String} columnName - A column name.
-	 * @returns {Expr} This SQL expression clause.
+	 * @returns {String} The table name.
 	 */
-	Expr.prototype.column = function(columnName) {
-		this._tree.push(columnName);
-		
-		return this;
+	Table.prototype.name = function() {
+		return this._name;
 	};
 	
 	/**
-	 * Adds the 'NOT' operator to the expression tree.
+	 * Gets an array of the columns for this table.
 	 * 
-	 * @param {Expr|String|Number} [operand] - The operand to the binary operator.
-	 * @returns {Expr} This SQL expression clause.
+	 * @returns {Array} - An array of table columns.
 	 */
-	Expr.prototype.not = function(operand) {
-		return this._binaryOperator(Spengler.OPERATORS.NOT, operand);
-	};
-	
-	/**
-	 * Begins a grouping. 
-	 * 
-	 * This adds a '(' onto the expression tree.
-	 * 
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.begin = function() {
-		this._tree.push("(");
+	Table.prototype.columns = function() {
+		var columns = [], 
+			that = this, 
+			key;
 		
-		return this;
-	};
-	
-	/**
-	 * Ends a grouping.
-	 * 
-	 * This adds a ')' onto the expression tree.
-	 * 
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.end = function() {
-		this._tree.push(")");
-		
-		return this;
-	};
-	
-	/**
-	 * Adds a binary operator and its right operand to the tree. The left operand
-	 * is assumed to already be attached to the tree.
-	 * 
-	 * @param {OPERATORS} operator - The operator.
-	 * @param {Expr|String|Number} rightOperant - The right operand
-	 * @return {Expr} This SQL expression clause.  
-	 */
-	Expr.prototype._binaryOperator = function(operator, rightOperand) {
-		this._tree.push(" " + operator + " ");
-		
-		if (rightOperand !== undefined) {
-			if (rightOperand instanceof Expr) {
-				this._tree.push(rightOperand);
-			} else {
-				this._tree.push(new Param(rightOperand));
+		for (key in that) {
+			if (that[key] instanceof Column) {
+				columns.push(that[key]);
 			}
 		}
 		
-		return this;
+		return columns;
 	};
 	
 	/**
-	 * Adds the '||' concatenate operator to the expression tree.
+	 * Gets an array of foreign keys for this table.
 	 * 
-	 * @param {Expr|String|Number} rightOperand - The right operand to the binary operator. 
-	 * @returns {Expr} This SQL expression clause.
+	 * @returns {Array} - An array of foreign keys.
 	 */
-	Expr.prototype.concat = function(rightOperand) {
-		return this._binaryOperator(Spengler.OPERATORS.CONCAT, rightOperand);
-	};
-	
-	/**
-	 * Adds the '*' multiply operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} rightOperand - The right operand to the binary operator. 
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.multiply = function(rightOperand) {
-		return this._binaryOperator(Spengler.OPERATORS.MULTIPLY, rightOperand);
-	};
-	
-	/**
-	 * Adds the '*' multiply operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} rightOperand - The right operand to the binary operator. 
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.times = function(rightOperand) {
-		return this._binaryOperator(Spengler.OPERATORS.MULTIPLY, rightOperand);
-	};
-	
-	/**
-	 * Adds the '/' divide operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} rightOperand - The right operand to the binary operator. 
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.divide = function(rightOperand) {
-		return this._binaryOperator(Spengler.OPERATORS.DIVIDE, rightOperand);
-	};
-	
-	/**
-	 * Adds the '/' divide operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} rightOperand - The right operand to the binary operator. 
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.dividedBy = function(rightOperand) {
-		return this._binaryOperator(Spengler.OPERATORS.DIVIDE, rightOperand);
-	};
-	
-	/**
-	 * Adds the '%' modulo operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} rightOperand - The right operand to the binary operator. 
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.modulo = function(rightOperand) {
-		return this._binaryOperator(Spengler.OPERATORS.MODULO, rightOperand);
-	};
-	
-	/**
-	 * Adds the '%' modulo operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} rightOperand - The right operand to the binary operator. 
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.remainder = function(rightOperand) {
-		return this._binaryOperator(Spengler.OPERATORS.MODULO, rightOperand);
-	};
-	
-	/**
-	 * Adds the '+' add operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} rightOperand - The right operand to the binary operator. 
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.add = function(rightOperand) {
-		return this._binaryOperator(Spengler.OPERATORS.ADD, rightOperand);
-	};
-	
-	/**
-	 * Adds the '-' subtract operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} rightOperand - The right operand to the binary operator. 
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.subtract = function(rightOperand) {
-		return this._binaryOperator(Spengler.OPERATORS.SUBTRACT, rightOperand);
-	};
-	
-	/**
-	 * Adds the '<' less than operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.lessThan = function(rightOperand) {
-		return this._binaryOperator(Spengler.OPERATORS.LESS_THAN, rightOperand);
-	};
-	
-	/**
-	 * Adds the '<=' less than equals operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.lessThanEquals = function(rightOperand) {
-		return this._binaryOperator(Spengler.OPERATORS.LESS_THAN_EQUALS, rightOperand);
-	};
-	
-	/**
-	 * Adds the '>' greater than operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.greaterThan = function(rightOperand) {
-		return this._binaryOperator(Spengler.OPERATORS.GREATER_THAN, rightOperand);
-	};
-	
-	/**
-	 * Adds the '>=' greater than equals operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.greaterThanEquals = function(rightOperand) {
-		return this._binaryOperator(Spengler.OPERATORS.GREATER_THAN_EQUALS, rightOperand);
-	};
-	
-	/**
-	 * Adds the '=' or '==' equals operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} rightOperand - The right operand to the binary operator. 
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.equals = function(rightOperand) {
-		return this._binaryOperator(Spengler.OPERATORS.EQUALS, rightOperand);
-	};
-	
-	/**
-	 * Adds the '!=' not equals operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.notEquals = function(rightOperand) {
-		return this._binaryOperator(Spengler.OPERATORS.NOT_EQUALS, rightOperand);
-	};
-	
-	/**
-	 * Adds the 'AND' operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.and = function(rightOperand) {
-		return this._binaryOperator(Spengler.OPERATORS.AND, rightOperand);
-	};
-	
-	/**
-	 * Adds the 'OR' operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.or = function(rightOperand) {
-		return this._binaryOperator(Spengler.OPERATORS.OR, rightOperand);
-	};
-	
-	/**
-	 * Adds the 'CAST' function to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} expr - The object to cast.
-	 * @param {TypeConstant} toType - The type to convert or cast the expr to.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.cast = function(expr, toType) {
-		this._tree.push(" CAST ");
-		this.begin();
-		this._tree.push(expr);
-		this._tree.push(" AS ");
-		this._tree.push(toType.dbType);
-		this.end();
-		
-		return this;
-	};
-	
-	/**
-	 * Adds the 'COLLATE' function to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} expr - The object to collate.
-	 * @param {CollateConstant} collation - The collation.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.collate = function(expr, collation) {
-		this._tree.push(expr);
-		this._tree.push(collation);
-		
-		return this;
-	};
-	
-	/**
-	 * Adds the 'LIKE' operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.like = function(rightOperand) {
-		return this._binaryOperator(Spengler.OPERATORS.LIKE, rightOperand);
-	};
-	
-	/**
-	 * Adds the 'GLOB' operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.glob = function(rightOperand) {
-		return this._binaryOperator(Spengler.OPERATORS.GLOB, rightOperand);
-	};
-		
-	/**
-	 * Adds the 'REGEXP' operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.regexp = function(rightOperand) {
-		return this._binaryOperator(Spengler.OPERATORS.REGEXP, rightOperand);
-	};
-	
-	/**
-	 * Adds the 'MATCH' operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.match = function(rightOperand) {
-		return this._binaryOperator(Spengler.OPERATORS.MATCH, rightOperand);
-	};
-	
-	/**
-	 * Adds the 'ESCAPE' clause to the expression tree.
-	 * 
-	 * @param {Expr} expr - The escape expression.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.escape = function(expr) {
-		this._tree.push(" ESCAPE ");
-		this._tree.push(expr);
-		
-		return this;
-	};
-	
-	/**
-	 * Adds the 'ISNULL' cluase to the expression tree.
-	 * 
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.isNull = function() {
-		this._tree.push(" ISNULL");
-		
-		return this;
-	};
-	
-	/**
-	 * Adds the 'NOTNULL' cluase to the expression tree.
-	 * 
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.notNull = function() {
-		this._tree.push(" NOTNULL");
-		
-		return this;
-	};
-	
-	/**
-	 * Adds the 'IS' operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.is = function(rightOperand) {
-		return this._binaryOperator(Spengler.OPERATORS.IS, rightOperand);
-	};
-	
-	/**
-	 * Adds the 'IS NOT' operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.isNot = function(rightOperand) {
-		return this._binaryOperator(Spengler.OPERATORS.IS_NOT, rightOperand);
-	};
-	
-	/**
-	 * Adds the 'IN' operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.in_ = function(rightOperand) {
-		return this._binaryOperator(Spengler.OPERATORS.IN, rightOperand);
-	};
-	
-	/**
-	 * Adds the 'BETWEEN' clause to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} leftOperand - The left operand.
-	 * @param {Expr|String|Number} rightOperand - The right operand.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.between = function(leftOperand, rightOperand) {
-		this._tree.push(" BETWEEN ");
-		this._tree.push(leftOperand);
-		this._tree.push(" AND ");
-		this._tree.push(rightOperand);
-		
-		return this;
-	};
-	
-	/**
-	 * Adds the 'EXISTS' clause to the expression tree.
-	 * 
-	 * @param {Clause} select - A select clause.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.exists = function(select) {
-		this._tree.push(" EXISTS ");
-		this.begin();
-		this._tree.push(select);
-		this.end();
-		
-		return this;
-	};
-	
-	/**
-	 * Adds the 'CASE' clause to the expression tree.
-	 * 
-	 * @param {Expr} expr - The expression.
-	 * @param {Expr} whenExpr - The when expression.
-	 * @param {Expr} thenExpr - The then expression.
-	 * @param {Expr} elseExpr - The else expression.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.case_ = function(expr, whenExpr, thenExpr, elseExpr) {
-		this._tree.push(" CASE ");
-		this._tree.push(expr);
-		this._tree.push(" WHEN ");
-		this._tree.push(whenExpr);
-		this._tree.push(" THEN ");
-		this._tree.push(thenExpr);
-		this._tree.push(" ELSE ");
-		this._tree.push(elseExpr);
-		this._tree.push(" END");
-		
-		return this;
-	}; 
-	
-	/**
-	 * Adds the 'raise-function' clause to the expression tree.
-	 * 
-	 * @param {RaiseFunctionsConstant} func - The raise function.
-	 * @param {String} errorMessage - The error message.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.raise = function(func, errorMessage) {
-		this._tree.push(" RAISE ");
-		this.begin();
-		this._tree.push(func);
-		
-		if (func !== Spengler.RAISE_FUNCTIONS.IGNORE) {
-			this._tree.push(", ");
-			this._tree.push(errorMessage);
-		}
-		
-		this.end();
-		
-		return this;
-	};
-	
-	/**
-	 * Adds an expression to this expression.
-	 * 
-	 * @param {Expr} expr - An SQL expression clause.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.expr = function(expr) {
-		this._tree.push(expr);
-		
-		return this;
-	};
-	
-	/**
-	 * Creates a new 'Whereable' object.
-	 * 
-	 * A 'Whereable' object is any SQL statement that can have a 'WHERE' clause.
-	 * 
-	 * @constructor
-	 */
-	function Whereable() {
-		this._tree = [];
-	};
-	
-	Whereable.prototype = new Statement();
-	
-	/**
-	 * Adds a 'WHERE' clause to this SQL clause.
-	 * 
-	 * @param {Expr} expr - A SQL expression clause.
-	 * @returns {Clause} This SQL clause.
-	 */
-	Whereable.prototype.where = function(expr) {
-		this._tree.push(" WHERE ");
-		this._tree.push(expr);
-		
-		return this;
-	};
-	
-	/**
-	 * Creates a new SQL 'INSERT' statement.
-	 * 
-	 * @constructor
-	 * 
-	 * @param {String} tableName - The table name.
-	 */
-	function Insert(tableName) {
-		this._tree = [];
-		this._tree.push("INSERT INTO ");
-		this._tree.push(tableName);
-	};
-	
-	Insert.prototype = new Statement();
-	
-	/**
-	 * Adds the 'column-name' clause to this 'INSERT' SQL statement.
-	 * 
-	 * @param {Array} columnNames - The column names as {String}.
-	 * @returns {Insert} This 'INSERT' SQL statement.
-	 */
-	Insert.prototype.columns = function(columnNames) {
-		var stopCount = columnNames.length - 1,
-			i;
-		
-		this._tree.push(" (");
-				
-		for (i = 0; i < stopCount; i += 1) {
-			this._tree.push(columnNames[i]);
-			this._tree.push(", ");
-		}
-		
-		this._tree.push(columnNames[i]);
-		this._tree.push(")");
-		
-		return this;
-	};
-	
-	/**
-	 * Adds the 'VALUES' clause to this 'INSERT' SQL statement.
-	 * 
-	 * @param {Array} values - The elements are either a {String} or an {Object}. An {Object} will have one property where the key will be used as the named parameter.
-	 * @returns {Insert} This SQL statement.
-	 */
-	Insert.prototype.values = function(values) {
-		var count = values.length - 1,
-			i;
-		
-		this._tree.push(" VALUES (");
-		
-		for (i = 0; i < count; i += 1) {
-			this._values(values[i]);
-			this._tree.push(", ");
-		}
-		
-		this._values(values[i]);
-		this._tree.push(")");
-		
-		return this;
-	};
-	
-	/**
-	 * Adds a value to the expression tree based on its type. This is used to implement named parameters.
-	 * 
-	 * @param {Object|String} value - A string is added as an unnamed parameter. An object literal takes the key as the named parameter. 
-	 */
-	Insert.prototype._values = function(value) {
-		var keys,
+	Table.prototype.foreignKeys = function() {
+		var foreignKeys = [],
+			that = this,
 			key;
 		
-		if (typeof value === 'object') {
-			keys = Object.keys(value);
-			key = keys[0];
-			
-			this._tree.push(new Param(value[key], key));	
-		} else {
-			this._tree.push(new Param(value));
-		}
-	};
-	
-	/**
-	 * Creates a new SQL 'UPDATE' statement.
-	 * 
-	 * @constructor
-	 * 
-	 * @param {String} tableName - The name of a table to update.
-	 */
-	function Update(tableName) {
-		this._tree = [];
-		this._tree.push("UPDATE ");
-		this._tree.push(tableName);
-	};
-	
-	Update.prototype = new Whereable();
-	
-	/**
-	 * Adds the 'SET' clauses to this 'UPDATE' SQL clause.
-	 * 
-	 * The column names will be used as the named bind parameters.
-	 * 
-	 * @param {Array} columns - An object literal with the keys as the column names and the values as the values to update. 
-	 * @returns {Update} This SQL clause.
-	 */
-	Update.prototype.set = function(columns) {
-		var count = columns.length - 1,
-			i;
-		
-		this._tree.push(" SET ");
-		
-		for (i = 0; i < count; i += 1) {
-			this._set(columns[i]);
-			this._tree.push(", ");
-		}
-		
-		this._set(columns[i]);
-		
-		return this;
-	};
-	
-	/**
-	 * Adds a value to the expression tree based on its type. This is used to implement named parameters.
-	 * 
-	 * @param {Object|String} value - A string is added as an unnamed parameter. An object literal takes the key as the named parameter. 
-	 */
-	Update.prototype._set = function(column) {
-		var keys,
-			key;
-
-		keys = Object.keys(column);
-		key = keys[0];
-		
-		this._tree.push(key);
-		this._tree.push(" = ");
-		this._tree.push(new Param(column[key]));
-	};
-	
-	/**
-	 * Creates a new SQL 'DELETE' statement.
-	 * 
-	 * @constructor
-	 */
-	function Delete(tableName) {
-		this._tree = [];
-		this._tree.push("DELETE FROM ");
-		this._tree.push(tableName);
-	};
-	
-	Delete.prototype = new Clause();
-	
-	// TODO: Implement 'ORDER BY' for 'DELETE' statement.
-	// TODO: Implement 'LIMIT' and 'OFFSET' for 'DELETE' statement.	
-
-	// TODO: Add 'from' and 'where' as optional arguments to the constructor.
-	// TODO: Create 'ResultColumn' prototype.
-	
-	/**
-	 * Creates a new SQL 'SELECT' statement.
-	 * 
-	 * @constructor
-	 * 
-	 * @param {Array} resultColumns - An array of strings and/or object literals with the keys as the alias for column names.
-	 */
-	function Select(resultColumns) {
-		this._tree = [];
-		this._tree.push("SELECT ");
-		
-		var count,
-			i;
-		
-		if (typeof resultColumns === 'undefined') {
-			this._tree.push("*");
-		} else {
-			count = resultColumns.length - 1;
-			
-			for (i = 0; i < count; i += 1) {
-				this._add(resultColumns[i]);
-				this._tree.push(", ");
+		for (key in that) {
+			if (that[key] instanceof ForeignKey) {
+				foriegnKeys.push(that[key]);
 			}
+		}
+		
+		return foreignKeys;
+	};
+		
+	/**
+	 * Creates a SQL string to create this table in a database. The 'IF NOT EXISTS' clause is
+	 * used to prevent corrupting the database or overwriting data.
+	 * 
+	 * @returns {String} A SQL string.
+	 */
+	Table.prototype.toString = function() {
+		var sql = "CREATE TABLE IF NOT EXISTS " + this._name + " (\n",
+			columns = this.columns(),
+			foreignKeys = this.foreignKeys(),
+			i;
+		
+		for (i = 0; i < columns.length; i += 1) {
+			sql += columns[i] + ", \n";
+		}
+		
+		for (i = 0; i < foreignKeys.length; i += 1) {
+			sql += "CONSTRAINT " + foreignKeys[i].name + " FOREIGN KEY (" + foreignKeys[i].column.name + ") " + foreignKeys[i] + ", \n";
+		}
+		
+		// Remove trailing newline character, comma, and space.
+		sql = sql.slice(0, -3) + ")";
+		
+		return sql;
+	};
+	
+	/**
+	 * Creates a SQL {Insert} statement to insert values into this table.
+	 * 
+	 * @param {Object} values - An object literal with the keys as the property name for this table pointing to the columns.
+	 * @returns {Insert} A SQL 'INSERT' statement.
+	 */
+	Table.prototype.insert = function(values) {
+		var columnNames = [],
+			insertValues = [],
+			that = this,
+			columnKey;
+		
+		for (columnKey in values) {
+			columnNames.push(that[columnKey].name);
+			insertValues.push(values[columnKey]);
+		}
+		
+		return Spengler.insert(this._name).columns(columnNames).values(insertValues);
+	};
+	
+	/**
+	 * Creates a SQL {Update} statement to update values in this table.
+	 * 
+	 * @param {Object} values - An object literal with the keys as the property name for this table pointing to the columns.
+	 * @returns {Update} A SQL 'UPDATE' statement.
+	 */
+	Table.prototype.update = function(values) {
+		var that = this,
+			columns = [],
+			column,
+			columnKey;
 			
-			this._add(resultColumns[i]);	
+		for (columnKey in values) {
+			column = Object.create({});
+			column[that[columnKey].name] = values[columnKey];
+			columns.push(column);
 		}
+		
+		return Spengler.update(this._name).set(columns);
 	};
 	
-	Select.prototype = new Whereable();
+	/**
+	 * Creates a SQL {DELETE} statement to delete values from this table.
+	 * 
+	 * @returns {Delete} A SQL 'DELETE' statement.
+	 */
+	Table.prototype.remove = function() {
+		return Spengler.remove(this._name);		
+	};
 	
 	/**
-	 * Adds a value to the expression tree. If the value is an object with a single
-	 * key, then the key is used as an alias for the SQL source.
-	 * 
-	 * @param {Object|String} value - The value to add to the expression tree. Use an object literal with the key as the alias to implement an alias for SQL value.
+	 * Creates a SQL {SELECT} statement to select values from this table.
+	 *  
+	 * @param {Array} columns - Either an array of {String} or an array of {Object}. If {Array} of {String}, then elements are the column names. If {Array} of {Object}, then elements are objects with one property where the key is an alias and the value is the column name.
+	 * @returns {Select} A SQL 'SELECT' statement.
 	 */
-	Select.prototype._add = function(value) {
-		var keys,
-			key;
+	Table.prototype.select = function(columns) {
+		// TODO: Convert 'columns' to array of {Column} objects and these are converted to an array appropriate for the SQL string builder.
+		return Spengler.select(columns).from(this._name);
+	};
 	
-		if (typeof value === 'object') {
-			keys = Object.keys(value);
-			key = keys[0];
-			this._tree.push(value[key]);
-			this._tree.push(" AS ");
-			this._tree.push(key);
+	// TODO: Add support for creating indices for a table on a column.
+	
+	/**
+	 * Creates a SQL database column.
+	 * 
+	 * The <code>options</code> parameter for this constructor can have any or all of the following
+	 * properties: primaryKey, autoIncrement, notNull, unique, defaultValue, collate, foreignKey. A
+	 * default value is set if the property is <code>undefined</code> in the option object.
+	 *
+	 * The <code>primaryKey</code> option is a boolean value indicating if the column is the primary key for the table.
+	 * The <code>autoIncrement</code> option is a boolean value indicating if the ID should be auto incremented.
+	 * The <code>notNull</code> option is a boolean value indicating if the NULL value is not acceptable.
+	 * The <code>unique</code> option is a boolean value indicating if the rows must have a unqiue value for this column.
+	 * The <code>defaultValue</code> option is the default value used on 'insert' commands.
+	 * The <code>collate</code> option is a string from the <code>Column.collate</code> constants.
+	 * The <code>foreignKey</code> option is a <code>ForeignKey</code> object.
+	 * 
+	 * @constructor
+	 * 
+	 * @param {String} name - The column name.
+	 * @param {TypeConstant} type - The column type.
+	 * @param {OptionsConstant} [options] - An object literal with keys from the {ColumnOptions} constants.
+	 */
+	function Column(name, type, options) {
+		this.name = name;
+		this._type = type;
+		
+		// TODO: Add support for conflict-clause
+		
+		if (options) {
+			this.primaryKey = options[Spengler.OPTIONS.PRIMARY_KEY] || false;
+			this.autoIncrement = options[Spengler.OPTIONS.AUTO_INCREMENT] || false;
+			
+			// TODO: Add support for conflict-clause
+			this.notNull = options[Spengler.OPTIONS.NOT_NULL] || false;
+			
+			// TODO: Add support for conflict-clause
+			this.unique = options[Spengler.OPTIONS.UNIQUE] || false;
+			
+			// TODO: Add expression support
+			this.defaultValue = options[Spengler.OPTIONS.DEFAULT_VALUE] || 'NULL';
+			this.collate = options[Spengler.OPTIONS.COLLATE] || null;
+	
+			this.foreignKey = options[Spengler.OPTIONS.FOREIGN_KEY] || null;	
 		} else {
-			this._tree.push(value);
+			this.primaryKey = false;
+			this.autoIncrement = false;
+			this.notNull = false;
+			this.unique = false;
+			this.defaultValue = 'NULL';
+			this.collate = null;
+			this.foreignKey = null;
 		}
 	};
 	
-	// TODO: Implement alternative sources for the 'FROM' clause instead of just a string for the table name. This means other select statments, which should be wrapped in paranthesis and aliasable.
+	/**
+	 * Returns a SQL expression with this column's name as the left operand for the
+	 * equals operator and a literal value for the right operand.
+	 * 
+	 * @param {String|Number} rightOperand - The right operand value.
+	 * @returns {Expr} A SQL expression that can be used for a 'WHERE' clause or chained together with other expressions.
+	 */
+	Column.prototype.equals = function(rightOperand) {
+		return Spengler.expr().column(this.name).equals(rightOperand);
+	};
 	
 	/**
-	 * Adds the 'FROM' clause to the expression tree.
+	 * Returns a SQL expression with this column's name as the left operand for the
+	 * not equals operator and a literal value for the right operand.
 	 * 
-	 * @param {Object|String} tableName - The table name. Use an object literal with the key as the alias to implement an SQL alias.
-	 * @returns {Select} This SQL clause.
+	 * @param {String|Number} rightOperand - The right operand value.
+	 * @returns {Expr} A SQL expression that can be used for a 'WHERE' clause or chained together with other expressions.
 	 */
-	Select.prototype.from = function(tableName) {
-		this._tree.push(" FROM ");
-		this._add(tableName);
+	Column.prototype.notEquals = function(rightOperand) {
+		return Spengler.expr().column(this.name).notEquals(value);
+	};
+	
+	/**
+	 * Returns a SQL expression with this column's name as the left operand for the
+	 * less than operator and a literal value for the right operand.
+	 * 
+	 * @param {String|Number} rightOperand - The right operand value.
+	 * @returns {Expr} A SQL expression that can be used for a 'WHERE' clause or chained together with other expressions.
+	 */
+	Column.prototype.lessThan = function(rightOperand) {
+		return Spengler.expr().column(this.name).lessThan(rightOperand);
+	};
+	
+	/**
+	 * Returns a SQL expression with this column's name as the left operand for the
+	 * greater than operator and a literal value for the right operand.
+	 * 
+	 * @param {String|Number} rightOperand - The right operand value.
+	 * @returns {Expr} A SQL expression that can be used for a 'WHERE' clause or chained together with other expressions.
+	 */
+	Column.prototype.greaterThan = function(rightOperand) {
+		return Spengler.expr().column(this.name).greaterThan(rightOperand);
+	};
+	
+	/**
+	 * Returns a SQL expression with this column's name as the left operand for the
+	 * less than equals operator and a literal value for the right operand.
+	 * 
+	 * @param {String|Number} rightOperand - The right operand value.
+	 * @returns {Expr} A SQL expression that can be used for a 'WHERE' clause or chained together with other expressions.
+	 */
+	Column.prototype.lessThanEquals = function(rightOperand) {
+		return Spengler.expr().column(this.name).lessThanEquals(rightOperand);
+	};
+	
+	/**
+	 * Returns a SQL expression with this column's name as the left operand for the
+	 * greater than equals operator and a literal value for the right operand.
+	 * 
+	 * @param {String|Number} rightOperand - The right operand value.
+	 * @returns {Expr} A SQL expression that can be used for a 'WHERE' clause or chained together with other expressions.
+	 */
+	Column.prototype.greaterThanEquals = function(rightOperand) {
+		return Spengler.expr().column(this.name).greaterThanEquals(rightOperand);
+	};
+	
+	/**
+	 * Creates an SQL string to create the column for a table.
+	 * 
+	 * @returns {String} A SQL string.
+	 */
+	Column.prototype.toString = function() {
+		// TODO: Add column-constraint support.
+		var sql = this.name + " " + this._type.dbType;
 		
-		return this;
-	};
-	
-	/**
-	 * Adds the 'JOIN' clause to the expression tree.
-	 * 
-	 * @param {Object|String} tableName - The table name. Use an object literal with the key as the alias to implement an SQL alias.
-	 * @returns {Select} This SQL clause.
-	 */
-	Select.prototype.join = function(tableName) {
-		this._tree.push(" JOIN ");
-		this._add(tableName);
+		if (this.primaryKey) {
+			sql += " PRIMARY KEY";
+		}
 		
-		return this;
-	};
-	
-	/**
-	 * Adds the 'LEFT JOIN' clause to the expression tree.
-	 * 
-	 * @param {Object|String} tableName - The table name. Use an object literal with the key as the alias to implement an SQL alias.
-	 * @returns {Select} This SQL clause.
-	 */
-	Select.prototype.leftJoin = function(tableName) {
-		this._tree.push(" LEFT");
+		if (this.autoIncrement) {
+			sql += " AUTOINCREMENT";
+		}
 		
-		return this.join(tableName);
-	};
-	
-	/**
-	 * Adds the 'LEFT OUTER JOIN' clause to the expression tree.
-	 * 
-	 * @param {Object|String} tableName - The table name. Use an object literal with the key as the alias to implement an SQL alias.
-	 * @returns {Select} This SQL clause.
-	 */
-	Select.prototype.leftOuterJoin = function(tableName) {
-		this._tree.push(" LEFT");
-		this._tree.push(" OUTER");
+		if (this.notNull) {
+			sql += " NOT NULL";
+		}
 		
-		return this.join(tableName);
-	};
-	
-	/**
-	 * Adds the 'INNER JOIN' clause to the expression tree.
-	 * 
-	 * @param {Object|String} tableName - The table name. Use an object literal with the key as the alias to implement an SQL alias.
-	 * @returns {Select} This SQL clause.
-	 */
-	Select.prototype.innerJoin = function(tableName) {
-		this._tree.push(" INNER");
+		if (this.unique) {
+			sql += " UNIQUE";
+		}
 		
-		return this.join(tableName);
-	};
-	
-	/**
-	 * Adds the 'CROSS JOIN' clause to the expression tree.
-	 * 
-	 * @param {Object|String} tableName - The table name. Use an object literal with the key as the alias to implement an SQL alias.
-	 * @returns {Select} This SQL clause.
-	 */
-	Select.prototype.crossJoin = function(tableName) {
-		this._tree.push(" CROSS");
+		if (this.defaultValue) {
+			sql += " DEFAULT " + this.defaultValue;
+		}
 		
-		return this.join(tableName);
-	};
-	
-	/**
-	 * Adds the 'ON' clause to the expression tree.
-	 * 
-	 * @param {Expr} expr - The SQL expression.
-	 * @returns {Select} This SQL clause.
-	 */
-	Select.prototype.on = function(expr) {
-		this._tree.push(" ON ");
-		this._tree.push(expr);
+		if (this.collate) {
+			sql += " COLLATE " + this.collate;
+		}
 		
-		return this;
-	};
-	
-	// TODO: Implement more flexible join construction mechanism.
-	// TODO: Create sub-prototypes for all clauses, such as a 'WHERE' clause prototype, a 'FROM' clause prototype, etc. and the functions from the statements are wrappers for creating these clauses.
-	// TODO: Implement "GROUP BY" construction.
-	// TODO: Add 'ORDER BY' construction.
-	// TODO: Add 'LIMIT' construction.
-	
-	/**
-	 * Factory method for creating expressions.
-	 * 
-	 * @returns {Expr} A new Expr object.
-	 */
-	Spengler.expr = function() {
-		return new Expr();
+		if (this.foreignKey) {
+			sql += " CONSTRAINT " + this.foreignKey.name + this.foreignKey;
+		}
+		
+		return sql;
 	};
 	
 	/**
-	 * Factory method for creating a 'INSERT' statement.
+	 * Creates a SQL foreign key.
 	 * 
-	 * @returns {Insert} A new 'INSERT' statement.
+	 * @constructor
+	 * 
+	 * @param {String} name - The name of the constraint.
+	 * @param {Table} parent - The parent or foreign table.
+	 * @param {Array} parentColumns - The columns in the parent, or foreign, table.
+	 * @param {String} [onDelete] - A {ForeignKeyAction} constants.
+	 * @param {String} [onUpdate] - A {ForeignKeyAction} constants. 
 	 */
-	Spengler.insert = function(tableName) {
-		return new Insert(tableName);
+	function ForeignKey(name, parent, parentColumns, onDelete, onUpdate) {
+		this.name = name;
+		this.parent = parent;
+		this.columns = parentColumns;
+		this.onDelete = onDelete || false;
+		this.onUpdate = onUpdate || false;
+		
+		// TODO: Add support for 'MATCH' clause
+		// TODO: Add support for 'DEFERRABLE' clause
+	};
+	
+	ForeignKey.prototype.toString = function() {
+		var sql = " REFERENCES " + this.parent._name + " (",
+			i;
+		
+		for (i = 0; i < this.columns.length; i += 1) {
+			sql += this.columns[i].name + ",";
+		}
+		
+		// Remove trailing comma.
+		sql = sql.slice(0, -1) + ")";
+		
+		if (this.onDelete) {
+			sql += "ON DELETE " + this.onDelete;
+		}
+		
+		if (this.onUpdate) {
+			sql += "ON UPDATE " + this.onUpdate;
+		}
+		
+		return sql;
 	};
 	
 	/**
-	 * Factory method for creating an 'UPDATE' statement.
+	 * Factory method for creating a table. If table by the supplied name already exists in the metadata, or schema,
+	 * then the existing table is return; otherwise, a new table is created.
 	 * 
-	 * @param {String} tableName - The table name.
-	 * @returns {Update} A new 'UPDATE' statement.
+	 * @param {String} name - The table name.
+	 * @param {Object} [schema] - An object literal the values of the properties should be Column objects and the keys will be added as properties to this table.
+	 * @see {Table}
 	 */
-	Spengler.update = function(tableName) {
-		return new Update(tableName);
+	Spengler.table = function(name, schema) {
+		if (metadata[name] !== undefined) {
+			return metadata[name];
+		} else {
+			return new Table(name, schema);	
+		}
 	};
 	
 	/**
-	 * Factory method for creating a 'DELETE' statement.
+	 * Factory method for creating a column.
 	 * 
-	 * @returns {Delete} A new 'DELETE' statement.
+	 * @param {String} name - The column name.
+	 * @param {TypeConstant} type - The column type.
+	 * @param {OptionsConstant} [options] - An object literal with keys from the {ColumnOptions} constants.
+	 * @see {Column}
 	 */
-	Spengler.remove = function(tableName) {
-		return new Delete(tableName);
+	Spengler.column = function(name, type, options) {
+		return new Column(name, type, options);
 	};
 	
 	/**
-	 * Factory method for creating a 'SELECT' statement.
+	 * Factory method for creating a foreign key.
 	 * 
-	 * @param {Array} resultColumns - An array of strings and/or object literals with the keys as the alias for column names.
-	 * @returns {Select} A new 'SELECT' statement.
+	 * @param {String} name - The name of the constraint.
+	 * @param {Table} parent - The parent or foreign table.
+	 * @param {Array} parentColumns - The columns in the parent, or foreign, table.
+	 * @param {String} [onDelete] - A {ForeignKeyAction} constants.
+	 * @param {String} [onUpdate] - A {ForeignKeyAction} constants.
+	 * @see {ForeignKey}
 	 */
-	Spengler.select = function(resultColumns) {
-		return new Select(resultColumns);
+	Spengler.foreignKey = function(name, parent, parentColumns, onDelete, onUpdate) {
+		return new ForeignKey(name, parent, parentColumns, onDelete, onUpdate);
 	};
 }());

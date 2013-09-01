@@ -713,7 +713,7 @@ var SQL = {};
 	};
 	
 	/**
-	 * Adds an expression to this expression.
+	 * Adds an expression to this expression clause.
 	 * 
 	 * @param {Expr} expr - An SQL expression clause.
 	 * @returns {Expr} This SQL expression clause.
@@ -725,12 +725,14 @@ var SQL = {};
 	};
 	
 	/**
-	 * Creates a new SQL 'INSERT' statement.
+	 * Creates a new 'INSERT INTO table-name' clause.
 	 * 
 	 * @constructor
 	 * 
 	 * @param {String} tableName - The table name.
 	 */
+	// TODO: Add optional parameter for columns clause.
+	// TODO: Add optional parameter for values clause.
 	function Insert(tableName) {
 		this._tree = [];
 		this._tree.push("INSERT INTO ");
@@ -740,6 +742,14 @@ var SQL = {};
 	
 	Insert.prototype = new Clause();
 	
+	/**
+	 * Creates a new '(column-name1, column-name2, ... , column-nameN)' clause.
+	 * 
+	 * @constructor
+	 * 
+	 * @param {Array} names
+	 */
+	// TODO: Add optional parameter for values clause.
 	function Columns(names) {
 		this._tree = [];
 		this._tree.push("(");
@@ -770,6 +780,13 @@ var SQL = {};
 		return this;
 	};
 	
+	/**
+	 * Creates a new 'VALUES (value1, value2, ... , valueN)' clause.
+	 * 
+	 * @constructor
+	 * 
+	 * @param {Array} values
+	 */
 	function Values(values) {
 		this._tree = [];
 		this._tree.push(" VALUES (");
@@ -806,10 +823,10 @@ var SQL = {};
 	}
 	
 	/**
-	 * Adds the 'VALUES' clause to this 'INSERT' SQL statement.
+	 * Adds the 'VALUES (value1, value2, ... , valueN)' clause to the 'INSERT' clause tree.
 	 * 
 	 * @param {Array} values - The elements are either a {String} or an {Object}. An {Object} will have one property where the key will be used as the named parameter.
-	 * @returns {Insert} This SQL statement.
+	 * @returns {Insert} This SQL 'INSERT' clause.
 	 */
 	Insert.prototype.values = function(values) {
 		this._tree.push(new Values(values));
@@ -817,6 +834,13 @@ var SQL = {};
 		return this;
 	};
 	
+	/**
+	 * Creates a new 'SET column-name1 = value1, column-name2 = value2, ... , column-name3 = value3' clause.
+	 * 
+	 * @constructor
+	 * 
+	 * @param {Array} columns
+	 */
 	function Set(columns) {
 		this._tree = [];
 		this._tree.push("SET ");
@@ -850,6 +874,13 @@ var SQL = {};
 		return tree;
 	}
 	
+	/**
+	 * Creates a new 'WHERE expr' clause.
+	 * 
+	 * @constructor
+	 * 
+	 * @param {Expr} expr
+	 */
 	function Where(expr) {
 		this._tree = [];
 		this._tree.push(" WHERE ");
@@ -859,7 +890,7 @@ var SQL = {};
 	Where.prototype = new Clause();
 	
 	/**
-	 * Creates a new SQL 'UPDATE' statement.
+	 * Creates a new 'UPDATE table-name' clause.
 	 * 
 	 * @constructor
 	 * 
@@ -875,12 +906,10 @@ var SQL = {};
 	Update.prototype = new Clause();
 	
 	/**
-	 * Adds the 'SET' clauses to this 'UPDATE' SQL clause.
-	 * 
-	 * The column names will be used as the named bind parameters.
+	 * Adds the 'SET column-name1 = value1, column-name2 = value2, ... , column-nameN = valueN' clauses to this 'UPDATE' clause tree.
 	 * 
 	 * @param {Array} columns - An object literal with the keys as the column names and the values as the values to update. 
-	 * @returns {Update} This SQL clause.
+	 * @returns {Update} The 'UPDATE' clause.
 	 */
 	Update.prototype.set = function(columns) {
 		this._tree.push(new Set(columns));
@@ -888,6 +917,12 @@ var SQL = {};
 		return this;
 	};
 	
+	/**
+	 * Adds the 'WHERE expr' clause to this 'UPDATE' clause tree.
+	 * 
+	 * @param {Expr} expr
+	 * @returns {Update} The 'UPDATE' clause.
+	 */
 	Update.prototype.where = function(expr) {
 		this._tree.push(new Where(expr));
 		
@@ -895,9 +930,11 @@ var SQL = {};
 	};
 	
 	/**
-	 * Creates a new SQL 'DELETE' statement.
+	 * Creates a new 'DELETE FROM table-name' clause.
 	 * 
 	 * @constructor
+	 * 
+	 * @param {String} tableName - A table name.
 	 */
 	function Delete(tableName) {
 		this._tree = [];
@@ -916,6 +953,7 @@ var SQL = {};
 	// TODO: Implement 'ORDER BY' for 'DELETE' statement.
 	// TODO: Implement 'LIMIT' and 'OFFSET' for 'DELETE' statement.	
 	
+	// TODO: Add optional parameter for where clause.
 	function From(source) {
 		this._tree = [];
 		this._tree.push(" FROM ");
@@ -924,6 +962,12 @@ var SQL = {};
 	
 	From.prototype = new Clause();
 	
+	// TODO: Add a parent clause parameter.
+	/**
+	 * @constructor
+	 * 
+	 * @param {String|Source} source
+	 */
 	function Join(source) {
 		this._tree = [];
 		this._tree.push(" JOIN ");
@@ -932,40 +976,44 @@ var SQL = {};
 	
 	Join.prototype = new Clause();
 	
-	function LeftJoin(source) {
-		this._tree = [];
+	// TODO: Add 'on' function for adding an 'ON expr' clause to the 'JOIN' clause.
+	// TODO: Add 'using' function for adding an 'USING' clause to the 'JOIN' clause.
+	
+	function LeftJoin(source, tree) {
+		this._tree = tree || [];
 		this._tree.push(" LEFT JOIN ");
 		this._tree = this._tree.concat(_getPossibleAliasedTree(source));
 	}
 	
 	LeftJoin.prototype = new Clause();
 	
-	function LeftOuterJoin(source) {
-		this._tree = [];
+	function LeftOuterJoin(source, tree) {
+		this._tree = tree || [];
 		this._tree.push(" LEFT OUTER JOIN ");
 		this._tree = this._tree.concat(_getPossibleAliasedTree(source));
 	}
 	
 	LeftOuterJoin.prototype = new Clause();
 	
-	function InnerJoin(source) {
-		this._tree = [];
+	function InnerJoin(source, tree) {
+		this._tree = tree || [];
 		this._tree.push(" INNER JOIN ");
 		this._tree = this._tree.concat(_getPossibleAliasedTree(source));
 	}
 	
 	InnerJoin.prototype = new Clause();
 	
-	function CrossJoin(source) {
-		this._tree = [];
+	function CrossJoin(source, tree) {
+		this._tree = tree || [];
 		this._tree.push(" CROSS JOIN ");
 		this._tree = this._tree.concat(_getPossibleAliasedTree(source));
 	}
 	
 	CrossJoin.prototype = new Clause();
 	
-	function On(expr) {
-		this._tree = [];
+	// TODO: Add passing of parent tree to all clauses.
+	function On(expr, tree) {
+		this._tree = tree || [];
 		this._tree.push(" ON ");
 		this._tree.push(expr);
 	};
@@ -979,6 +1027,8 @@ var SQL = {};
 	 * 
 	 * @param {Array} resultColumns - An array of strings and/or object literals with the keys as the alias for column names.
 	 */
+	// TODO: Add optional parameter for from clause.
+	// TODO: Add optional parameter for where clause.
 	function Select(resultColumns) {
 		this._tree = [];
 		this._tree.push("SELECT ");
@@ -1002,85 +1052,85 @@ var SQL = {};
 	
 	Select.prototype = new Clause();
 	
-	// TODO: Implement 'Table' clause.
-	// TODO: Implement alternative sources for the 'FROM' clause instead of just a string for the table name. This means other select statments, which should be wrapped in paranthesis and aliasable.
-	
 	/**
-	 * Adds the 'FROM' clause to the expression tree.
+	 * Adds the 'FROM' clause to the 'SELECT' clause tree.
 	 * 
-	 * @param {Object|String} tableName - The table name. Use an object literal with the key as the alias to implement an SQL alias.
+	 * @param {String|Source} source - The table name. Use an object literal with the key as the alias to implement an SQL alias.
 	 * @returns {Select} This SQL clause.
 	 */
-	Select.prototype.from = function(tableName) {
-		this._tree.push(new From(tableName));
+	// TODO: Implement automatic Table source creation when a string is used as a parameter.
+	// TODO: Implement multiple sources.
+	Select.prototype.from = function(source) {
+		this._tree.push(new From(source));
 		
 		return this;
 	};
 	
 	/**
-	 * Adds the 'JOIN' clause to the expression tree.
+	 * Adds the 'JOIN' clause to the 'SELECT' clause tree.
 	 * 
-	 * @param {Object|String} tableName - The table name. Use an object literal with the key as the alias to implement an SQL alias.
+	 * @param {String|Source} source - The table name. Use an object literal with the key as the alias to implement an SQL alias.
 	 * @returns {Select} This SQL clause.
 	 */
-	Select.prototype.join = function(tableName) {
-		this._tree.push(new Join(tableName));
+	Select.prototype.join = function(source) {
+		this._tree.push(new Join(source));
 		
 		return this;
 	};
 	
 	/**
-	 * Adds the 'LEFT JOIN' clause to the expression tree.
+	 * Adds the 'LEFT JOIN' clause to the 'SELECT' clause tree.
 	 * 
-	 * @param {Object|String} tableName - The table name. Use an object literal with the key as the alias to implement an SQL alias.
+	 * @param {String|Source} source - The table name. Use an object literal with the key as the alias to implement an SQL alias.
 	 * @returns {Select} This SQL clause.
 	 */
-	Select.prototype.leftJoin = function(tableName) {
-		this._tree.push(new LeftJoin(tableName));
+	Select.prototype.leftJoin = function(source) {
+		this._tree.push(new LeftJoin(source));
 		
 		return this;
 	};
 	
 	/**
-	 * Adds the 'LEFT OUTER JOIN' clause to the expression tree.
+	 * Adds the 'LEFT OUTER JOIN' clause to the 'SELECT' clause tree.
 	 * 
-	 * @param {Object|String} tableName - The table name. Use an object literal with the key as the alias to implement an SQL alias.
+	 * @param {String|Source} source - The table name. Use an object literal with the key as the alias to implement an SQL alias.
 	 * @returns {Select} This SQL clause.
 	 */
-	Select.prototype.leftOuterJoin = function(tableName) {
-		this._tree.push(new LeftOuterJoin(tableName));
+	Select.prototype.leftOuterJoin = function(source) {
+		this._tree.push(new LeftOuterJoin(source));
 		
 		return this;
 	};
 	
 	/**
-	 * Adds the 'INNER JOIN' clause to the expression tree.
+	 * Adds the 'INNER JOIN join-source' clause to the 'SELECT' clause tree.
 	 * 
-	 * @param {Object|String} tableName - The table name. Use an object literal with the key as the alias to implement an SQL alias.
+	 * @param {String|Source} source - The table name. Use an object literal with the key as the alias to implement an SQL alias.
 	 * @returns {Select} This SQL clause.
 	 */
-	Select.prototype.innerJoin = function(tableName) {
-		this._tree.push(new InnerJoin(tableName));
+	// TODO: Implement multiple types of sources: TableSource, SelectSource, and JoinSource.
+	Select.prototype.innerJoin = function(source) {
+		this._tree.push(new InnerJoin(source));
 		
 		return this;
 	};
 	
 	/**
-	 * Adds the 'CROSS JOIN' clause to the expression tree.
+	 * Adds the 'CROSS JOIN join-source' clause to the 'SELECT' clause tree.
 	 * 
-	 * @param {Object|String} tableName - The table name. Use an object literal with the key as the alias to implement an SQL alias.
+	 * @param {String|Source} source - The table name. Use an object literal with the key as the alias to implement an SQL alias.
 	 * @returns {Select} This SQL clause.
 	 */
-	Select.prototype.crossJoin = function(tableName) {
-		this._tree.push(new CrossJoin(tableName));
+	Select.prototype.crossJoin = function(source) {
+		this._tree.push(new CrossJoin(source));
 		
 		return this;
 	};
 	
 	/**
-	 * Adds the 'ON' clause to the expression tree.
+	 * Adds the 'ON expr' clause to the 'SELECT' clause tree.
 	 * 
-	 * @param {Expr} expr - The SQL expression.
+	 * @param {Expr} expr - A SQL expression.
 	 * @returns {Select} This SQL clause.
 	 */
 	Select.prototype.on = function(expr) {
@@ -1089,104 +1139,177 @@ var SQL = {};
 		return this;
 	};
 	
+	/**
+	 * Adds the 'WHERE expr' clause to the 'SELECT' clause tree.
+	 * 
+	 * @param {Expr} expr - A SQL expression.
+	 * @returns {Select} This SQL clause.
+	 */
 	Select.prototype.where = function(expr) {
 		this._tree.push(new Where(expr));
 		
 		return this;
 	};
 	
-	// TODO: Implement more flexible join construction mechanism.
-	// TODO: Create sub-prototypes for all clauses, such as a 'WHERE' clause prototype, a 'FROM' clause prototype, etc. and the functions from the statements are wrappers for creating these clauses.
 	// TODO: Implement "GROUP BY" construction.
 	// TODO: Add 'ORDER BY' construction.
 	// TODO: Add 'LIMIT' construction.
 	
 	/**
-	 * Factory method for creating expressions.
+	 * Factory method for creating a new expression.
 	 * 
-	 * @returns {Expr} A new Expr object.
+	 * @returns {Expr} A new expression.
 	 */
 	SQL.expr = function() {
 		return new Expr();
 	};
 	
 	/**
-	 * Factory method for creating a 'INSERT' statement.
+	 * Factory method for creating a new 'INSERT INTO' clause.
 	 * 
-	 * @returns {Insert} A new 'INSERT' statement.
+	 * @param {String} tableName 
+	 * @returns {Insert} A new 'INSERT INTO' clause.
 	 */
 	SQL.insert = function(tableName) {
 		return new Insert(tableName);
 	};
 	
+	/**
+	 * Factory method for creating a new '(column-name1, column-name2, ... , column-nameN)' clause. The columns clause comes directly after the 'INSERT INTO table-name' clause.
+	 * 
+	 * @param {Array} columnNames
+	 * @returns {Columns}
+	 */
 	SQL.columns = function(columnNames) {
 		return new Columns(columnNames);
 	};
 	
+	/**
+	 * Factory method for creating a new 'VALUES (value1, value 2, ... , valueN)' clause. The values clause comes directly after the columns clause.
+	 * 
+	 * @param {Array} values
+	 * @returns {Values}
+	 */
 	SQL.values = function(values) {
 		return new Values(values);
 	};
 	
+	/**
+	 * Factory method for creating a new 'SET column-name1 = value1, column-name2 = value2, ... , column-nameN = valueN' clause.
+	 * 
+	 * @param {Array} columns
+	 * @returns {Set}
+	 */
 	SQL.set = function(columns) {
 		return new Set(columns);
 	};
 	
+	/**
+	 * Factory method for creating a new 'where expr' clause.
+	 * 
+	 * @param {Expr} expr
+	 * @returns {Where}
+	 */
 	SQL.where = function(expr) {
 		return new Where(expr);
 	};
 		
 	/**
-	 * Factory method for creating an 'UPDATE' statement.
+	 * Factory method for creating a new 'UPDATE table-name' clause.
 	 * 
 	 * @param {String} tableName - The table name.
-	 * @returns {Update} A new 'UPDATE' statement.
+	 * @returns {Update} A new 'UPDATE' clause.
 	 */
 	SQL.update = function(tableName) {
 		return new Update(tableName);
 	};
 	
 	/**
-	 * Factory method for creating a 'DELETE' statement.
+	 * Factory method for creating a new 'DELETE FROM table-name' clause.
 	 * 
-	 * @returns {Delete} A new 'DELETE' statement.
+	 * @param {String} tableName - The table name.
+	 * @returns {Delete} A new 'DELETE' clause.
 	 */
 	SQL.remove = function(tableName) {
 		return new Delete(tableName);
 	};
 	
+	/**
+	 * Factory method for creating a new 'FROM join-source' clause.
+	 * 
+	 * @param {String|Source} source
+	 * @returns {From} A new 'FROM join-source' clause.
+	 */
+	// TODO: Add ability to pass a source or string and have a TableSource created if only a string is passed.
 	SQL.from = function(source) {
 		return new From(source);
 	};
 	
+	/**
+	 * Factory method for creating a new 'JOIN single-source' clause.
+	 * 
+	 * @param {String|Source} source
+	 * @returns {Join} A new 'JOIN single-source' clause.
+	 */
 	SQL.join = function(source) {
 		return new Join(source);
 	};
 	
+	/**
+	 * Factory method for creating a new 'LEFT JOIN single-source' clause.
+	 * 
+	 * @param {String|Source} source
+	 * @returns {LeftJoin} A new 'LEFT JOIN single-source' clause.
+	 */
 	SQL.leftJoin = function(source) {
 		return new LeftJoin(source);
 	};
 	
+	/**
+	 * Factory method for creating a new 'LEFT OUTER JOIN single-source' clause.
+	 * 
+	 * @param {String|Source} source
+	 * @returns {LeftOuterJoin} A new 'LEFT OUTER JOIN single-source' clause.
+	 */
 	SQL.leftOuterJoin = function(source) {
 		return new LeftOuterJoin(source);
 	};
 	
+	/**
+	 * Factory method for creating a new 'INNER JOIN single-source' clause.
+	 * 
+	 * @param {String|Source} source
+	 * @returns {InnerJoin} A new 'INNER JOIN single-source' clause.
+	 */
 	SQL.innerJoin = function(source) {
 		return new InnerJoin(source);
 	};
 	
+	/**
+	 * Factory method for creating a new 'CROSS JOIN single-source' clause.
+	 * 
+	 * @param {String|Source} source
+	 * @returns {CrossJoin} A new 'CROSS JOIN single-source' clause.
+	 */
 	SQL.crossJoin = function(source) {
 		return new CrossJoin(source);
 	};
 	
+	/**
+	 * Factory method for creating a new 'ON expr' clause.
+	 * 
+	 * @param {Expr} expr
+	 * @returns {On} A new 'ON expr' clause.
+	 */
 	SQL.on = function(expr) {
 		return new On(expr);
 	};
 	
 	/**
-	 * Factory method for creating a 'SELECT' statement.
+	 * Factory method for creating a 'SELECT column1, column2, ... , columnN' clause.
 	 * 
 	 * @param {Array} resultColumns - An array of strings and/or object literals with the keys as the alias for column names.
-	 * @returns {Select} A new 'SELECT' statement.
+	 * @returns {Select} A new 'SELECT column1, column2, ... , columnN' clause.
 	 */
 	SQL.select = function(resultColumns) {
 		return new Select(resultColumns);
