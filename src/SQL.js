@@ -11,7 +11,7 @@
  * for the specific language governing rights and limitations under the
  * License.
  *
- * The Original Code is Spengler.
+ * The Original Code is SQL.
  *
  * The Initial Developer of the Original Code is Christopher R. Field.
  * Portions created by the Initial Developer are Copyright (C) 2013
@@ -33,12 +33,12 @@
  * the terms of any one of the MPL, the GPL or the LGPL.
  *
  * ***** END LICENSE BLOCK ***** */
-var EXPORTED_SYMBOLS = ["Spengler"];
+var EXPORTED_SYMBOLS = ["SQL"];
 
 /**
  * @namespace
  */
-var Spengler = {};
+var SQL = {};
 
 (function() {
 	/**
@@ -48,7 +48,7 @@ var Spengler = {};
 	 * @readonly
 	 * @constant
 	 */
-	Spengler.COLLATE = {
+	SQL.COLLATE = {
 		BINARY: 'BINARY',
 		NOCASE: 'NOCASE',
 		RTRIM: 'RTRIM',	
@@ -61,7 +61,7 @@ var Spengler = {};
 	 * @readonly
 	 * @constant
 	 */
-	Spengler.OPERATORS = {
+	SQL.OPERATORS = {
 		CONCAT: '||',
 		MULTIPLY: '*',
 		DIVIDE: '/',
@@ -94,7 +94,7 @@ var Spengler = {};
 	 * @readonly
 	 * @constant
 	 */
-	Spengler.LITERAL_VALUES = {
+	SQL.LITERAL_VALUES = {
 		NULL: 'NULL',
 		CURRENT_TIME: 'CURRENT_TIME',
 		CURRENT_DATE: 'CURRENT_DATE',
@@ -108,12 +108,30 @@ var Spengler = {};
 	 * @readonly
 	 * @constant
 	 */
-	Spengler.RAISE_FUNCTIONS = {
+	SQL.RAISE_FUNCTIONS = {
 		IGNORE: 'IGNORE',
 		ROLLBACK: 'ROLLBACK',
 		ABORT: 'ABORT',
 		FAIL: 'FAIL',
 	};
+	
+	function _getPossibleAliasedTree(value) {
+		var keys,
+			key,
+			tree = [];
+		
+		if (typeof value === 'object') {
+			keys = Object.keys(value);
+			key = keys[0];
+			tree.push(value[key]);
+			tree.push(" AS ");
+			tree.push(key);
+		} else {
+			tree.push(value);
+		}
+		
+		return tree;
+	}
 	
 	/**
 	 * Creates a new bind parameter object.
@@ -153,35 +171,11 @@ var Spengler = {};
 	};
 	
 	/**
-	 * Creates a new SQL compiled statement.
-	 * 
-	 * @constructor
-	 * 
-	 * @param {String} sql - The SQL string compiled from a clause.
-	 * @param {Object} params - A literal with the properties as the keys for the named bind parameters and the property values as the binding values.
-	 */
-	function Compiled(sql, params) {
-		this._sql = sql;
-		this.params = params;
-	};
-	
-	/**
-	 * The SQL string ready for parameter binding and execution.
-	 * 
-	 * @return {String} The SQL string.
-	 */
-	Compiled.prototype.toString = function() {
-		return this._sql;
-	};
-	
-	
-	/**
-	 * Creates a new SQL clause.
+	 * Creates a new SQL clause. This is the parent prototype for all SQL strings.
 	 * 
 	 * @constructor
 	 */
 	function Clause() {
-		// TODO: Add '_parent' attribute.
 		this._tree = [];
 	};
 	
@@ -212,84 +206,20 @@ var Spengler = {};
 	 * @returns {String}
 	 */
 	Clause.prototype.toString = function() {
-		var str = '',
+		var tree = this.tree(),
+			str = '',
 			i;
 		
-		for (i = 0; i < this._tree.length; i += 1) {
-			str += this._tree[i].toString();
+		for (i = 0; i < tree.length; i += 1) {
+			str += tree[i].toString();
 		}
 		
 		return str;
 	};
 	
-	/**
-	 * Creates a new SQL statement.
-	 * 
-	 * @constructor.
-	 */
-	function Statement() {
-		this._tree = [];
-	};
-	
-	Statement.prototype = new Clause();
-	
-	/**
-	 * Compiles the clause ready for parameter binding and execution.
-	 * 
-	 * @returns {Compiled} A compiled object that contains the SQL string and the parameters for binding.
-	 */
-	Statement.prototype.compile = function() {
-		var sql = '',
-			tree = this.tree(),
-			params = {},
-			paramCount = 0,
-			tempKey,
-			node,
-			i;
-		
-		for (i = 0; i < tree.length; i += 1) {
-			node = tree[i];
-			if (node instanceof Param) {
-				if (!node.key) {
-					tempKey = _generateParamKey(paramCount);
-					paramCount += 1;	
-				} else {
-					tempKey = node.key;
-				}
-				
-				sql += ":" + tempKey;
-				params[tempKey] = node.value;
-			} else {
-				sql += node;
-			}
-		}
-		
-		return new Compiled(sql, params);
-	};
-	
-	/**
-	 * Generates a named parameter key based on the current number of parameters.
-	 * 
-	 * A named parameter is created using the following pattern: 'paramA', 'paramB', 
-	 * 'paramC', ... 'paramAA', 'paramBB', ... 'paramAAA' and so on.
-	 * 
-	 * @param {Integer} paramCount - The current number of parameters.
-	 */
-	function _generateParamKey(paramCount) {
-		var DEFAULT_PARAM = "param",
-			charCode = 65 + (paramCount % 26),
-			repeat = paramCount / 26,
-			suffix,
-			i;
-		
-		suffix = String.fromCharCode(charCode);
-		
-		for (i = 1; i < repeat; i += 1) {
-			suffix = String.fromCharCode(charCode);
-		}
-		
-		return DEFAULT_PARAM + suffix;
-	}
+	// TODO: Create a 'Source' clause.
+	// TODO: Create a 'Table' source.
+	// TODO: Create a 'Select' source.
 	
 	/**
 	 * Creates a new SQL expression clause.
@@ -312,16 +242,16 @@ var Spengler = {};
 	 */
 	Expr.prototype.literal = function(value) {
 		
-		if (value === Spengler.LITERAL_VALUE.NULL) {
-			this._tree.push(Spengler.LITERAL_VALUE.NULL);
-		} else if (value === Spengler.LITERAL_VALUE.CURRENT_TIME) {
-			this._tree.push(Spengler.LITERAL_VALUE.CURRENT_TIME);
+		if (value === SQL.LITERAL_VALUE.NULL) {
+			this._tree.push(SQL.LITERAL_VALUE.NULL);
+		} else if (value === SQL.LITERAL_VALUE.CURRENT_TIME) {
+			this._tree.push(SQL.LITERAL_VALUE.CURRENT_TIME);
 		}
-		else if (value === Spengler.LITERAL_VALUE.CURRENT_DATE) {
-			this._tree.push(Spengler.LITERAL_VALUE.CURRENT_DATE);
+		else if (value === SQL.LITERAL_VALUE.CURRENT_DATE) {
+			this._tree.push(SQL.LITERAL_VALUE.CURRENT_DATE);
 		}
-		else if (value === Spengler.LITERAL_VALUE.CURRENT_TIMESTAMP) {
-			this._tree.push(Spengler.LITERAL_VALUE.CURRENT_TIMESTAMP);
+		else if (value === SQL.LITERAL_VALUE.CURRENT_TIMESTAMP) {
+			this._tree.push(SQL.LITERAL_VALUE.CURRENT_TIMESTAMP);
 		} else {
 			this._tree.push(new Param(value));	
 		}
@@ -348,7 +278,7 @@ var Spengler = {};
 	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.not = function(operand) {
-		return this._binaryOperator(Spengler.OPERATORS.NOT, operand);
+		return this._binaryOperator(SQL.OPERATORS.NOT, operand);
 	};
 	
 	/**
@@ -406,7 +336,7 @@ var Spengler = {};
 	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.concat = function(rightOperand) {
-		return this._binaryOperator(Spengler.OPERATORS.CONCAT, rightOperand);
+		return this._binaryOperator(SQL.OPERATORS.CONCAT, rightOperand);
 	};
 	
 	/**
@@ -416,7 +346,7 @@ var Spengler = {};
 	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.multiply = function(rightOperand) {
-		return this._binaryOperator(Spengler.OPERATORS.MULTIPLY, rightOperand);
+		return this._binaryOperator(SQL.OPERATORS.MULTIPLY, rightOperand);
 	};
 	
 	/**
@@ -426,7 +356,7 @@ var Spengler = {};
 	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.times = function(rightOperand) {
-		return this._binaryOperator(Spengler.OPERATORS.MULTIPLY, rightOperand);
+		return this._binaryOperator(SQL.OPERATORS.MULTIPLY, rightOperand);
 	};
 	
 	/**
@@ -436,7 +366,7 @@ var Spengler = {};
 	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.divide = function(rightOperand) {
-		return this._binaryOperator(Spengler.OPERATORS.DIVIDE, rightOperand);
+		return this._binaryOperator(SQL.OPERATORS.DIVIDE, rightOperand);
 	};
 	
 	/**
@@ -446,7 +376,7 @@ var Spengler = {};
 	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.dividedBy = function(rightOperand) {
-		return this._binaryOperator(Spengler.OPERATORS.DIVIDE, rightOperand);
+		return this._binaryOperator(SQL.OPERATORS.DIVIDE, rightOperand);
 	};
 	
 	/**
@@ -456,7 +386,7 @@ var Spengler = {};
 	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.modulo = function(rightOperand) {
-		return this._binaryOperator(Spengler.OPERATORS.MODULO, rightOperand);
+		return this._binaryOperator(SQL.OPERATORS.MODULO, rightOperand);
 	};
 	
 	/**
@@ -466,7 +396,7 @@ var Spengler = {};
 	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.remainder = function(rightOperand) {
-		return this._binaryOperator(Spengler.OPERATORS.MODULO, rightOperand);
+		return this._binaryOperator(SQL.OPERATORS.MODULO, rightOperand);
 	};
 	
 	/**
@@ -476,7 +406,7 @@ var Spengler = {};
 	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.add = function(rightOperand) {
-		return this._binaryOperator(Spengler.OPERATORS.ADD, rightOperand);
+		return this._binaryOperator(SQL.OPERATORS.ADD, rightOperand);
 	};
 	
 	/**
@@ -486,7 +416,7 @@ var Spengler = {};
 	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.subtract = function(rightOperand) {
-		return this._binaryOperator(Spengler.OPERATORS.SUBTRACT, rightOperand);
+		return this._binaryOperator(SQL.OPERATORS.SUBTRACT, rightOperand);
 	};
 	
 	/**
@@ -496,7 +426,7 @@ var Spengler = {};
 	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.lessThan = function(rightOperand) {
-		return this._binaryOperator(Spengler.OPERATORS.LESS_THAN, rightOperand);
+		return this._binaryOperator(SQL.OPERATORS.LESS_THAN, rightOperand);
 	};
 	
 	/**
@@ -506,7 +436,7 @@ var Spengler = {};
 	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.lessThanEquals = function(rightOperand) {
-		return this._binaryOperator(Spengler.OPERATORS.LESS_THAN_EQUALS, rightOperand);
+		return this._binaryOperator(SQL.OPERATORS.LESS_THAN_EQUALS, rightOperand);
 	};
 	
 	/**
@@ -516,7 +446,7 @@ var Spengler = {};
 	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.greaterThan = function(rightOperand) {
-		return this._binaryOperator(Spengler.OPERATORS.GREATER_THAN, rightOperand);
+		return this._binaryOperator(SQL.OPERATORS.GREATER_THAN, rightOperand);
 	};
 	
 	/**
@@ -526,7 +456,7 @@ var Spengler = {};
 	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.greaterThanEquals = function(rightOperand) {
-		return this._binaryOperator(Spengler.OPERATORS.GREATER_THAN_EQUALS, rightOperand);
+		return this._binaryOperator(SQL.OPERATORS.GREATER_THAN_EQUALS, rightOperand);
 	};
 	
 	/**
@@ -536,7 +466,7 @@ var Spengler = {};
 	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.equals = function(rightOperand) {
-		return this._binaryOperator(Spengler.OPERATORS.EQUALS, rightOperand);
+		return this._binaryOperator(SQL.OPERATORS.EQUALS, rightOperand);
 	};
 	
 	/**
@@ -546,7 +476,7 @@ var Spengler = {};
 	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.notEquals = function(rightOperand) {
-		return this._binaryOperator(Spengler.OPERATORS.NOT_EQUALS, rightOperand);
+		return this._binaryOperator(SQL.OPERATORS.NOT_EQUALS, rightOperand);
 	};
 	
 	/**
@@ -556,7 +486,7 @@ var Spengler = {};
 	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.and = function(rightOperand) {
-		return this._binaryOperator(Spengler.OPERATORS.AND, rightOperand);
+		return this._binaryOperator(SQL.OPERATORS.AND, rightOperand);
 	};
 	
 	/**
@@ -566,7 +496,7 @@ var Spengler = {};
 	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.or = function(rightOperand) {
-		return this._binaryOperator(Spengler.OPERATORS.OR, rightOperand);
+		return this._binaryOperator(SQL.OPERATORS.OR, rightOperand);
 	};
 	
 	/**
@@ -608,7 +538,7 @@ var Spengler = {};
 	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.like = function(rightOperand) {
-		return this._binaryOperator(Spengler.OPERATORS.LIKE, rightOperand);
+		return this._binaryOperator(SQL.OPERATORS.LIKE, rightOperand);
 	};
 	
 	/**
@@ -618,7 +548,7 @@ var Spengler = {};
 	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.glob = function(rightOperand) {
-		return this._binaryOperator(Spengler.OPERATORS.GLOB, rightOperand);
+		return this._binaryOperator(SQL.OPERATORS.GLOB, rightOperand);
 	};
 		
 	/**
@@ -628,7 +558,7 @@ var Spengler = {};
 	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.regexp = function(rightOperand) {
-		return this._binaryOperator(Spengler.OPERATORS.REGEXP, rightOperand);
+		return this._binaryOperator(SQL.OPERATORS.REGEXP, rightOperand);
 	};
 	
 	/**
@@ -638,24 +568,41 @@ var Spengler = {};
 	 * @returns {Expr} This SQL expression clause.
 	 */
 	Expr.prototype.match = function(rightOperand) {
-		return this._binaryOperator(Spengler.OPERATORS.MATCH, rightOperand);
+		return this._binaryOperator(SQL.OPERATORS.MATCH, rightOperand);
 	};
 	
 	/**
-	 * Adds the 'ESCAPE' clause to the expression tree.
+	 * Adds the 'IS' operator to the expression tree.
 	 * 
-	 * @param {Expr} expr - The escape expression.
+	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
 	 * @returns {Expr} This SQL expression clause.
 	 */
-	Expr.prototype.escape = function(expr) {
-		this._tree.push(" ESCAPE ");
-		this._tree.push(expr);
-		
-		return this;
+	Expr.prototype.is = function(rightOperand) {
+		return this._binaryOperator(SQL.OPERATORS.IS, rightOperand);
 	};
 	
 	/**
-	 * Adds the 'ISNULL' cluase to the expression tree.
+	 * Adds the 'IS NOT' operator to the expression tree.
+	 * 
+	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
+	 * @returns {Expr} This SQL expression clause.
+	 */
+	Expr.prototype.isNot = function(rightOperand) {
+		return this._binaryOperator(SQL.OPERATORS.IS_NOT, rightOperand);
+	};
+	
+	/**
+	 * Adds the 'IN' operator to the expression tree.
+	 * 
+	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
+	 * @returns {Expr} This SQL expression clause.
+	 */
+	Expr.prototype.in_ = function(rightOperand) {
+		return this._binaryOperator(SQL.OPERATORS.IN, rightOperand);
+	};
+	
+	/**
+	 * Adds the 'ISNULL' operation to the expression tree.
 	 * 
 	 * @returns {Expr} This SQL expression clause.
 	 */
@@ -666,7 +613,7 @@ var Spengler = {};
 	};
 	
 	/**
-	 * Adds the 'NOTNULL' cluase to the expression tree.
+	 * Adds the 'NOTNULL' operation to the expression tree.
 	 * 
 	 * @returns {Expr} This SQL expression clause.
 	 */
@@ -675,35 +622,18 @@ var Spengler = {};
 		
 		return this;
 	};
-	
+		
 	/**
-	 * Adds the 'IS' operator to the expression tree.
+	 * Adds the 'ESCAPE' operation to the expression tree.
 	 * 
-	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
+	 * @param {Expr} expr - The escape expression.
 	 * @returns {Expr} This SQL expression clause.
 	 */
-	Expr.prototype.is = function(rightOperand) {
-		return this._binaryOperator(Spengler.OPERATORS.IS, rightOperand);
-	};
-	
-	/**
-	 * Adds the 'IS NOT' operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.isNot = function(rightOperand) {
-		return this._binaryOperator(Spengler.OPERATORS.IS_NOT, rightOperand);
-	};
-	
-	/**
-	 * Adds the 'IN' operator to the expression tree.
-	 * 
-	 * @param {Expr|String|Number} [rightOperand] - The right operand to the binary operator.
-	 * @returns {Expr} This SQL expression clause.
-	 */
-	Expr.prototype.in_ = function(rightOperand) {
-		return this._binaryOperator(Spengler.OPERATORS.IN, rightOperand);
+	Expr.prototype.escape = function(expr) {
+		this._tree.push(" ESCAPE ");
+		this._tree.push(expr);
+		
+		return this;
 	};
 	
 	/**
@@ -772,7 +702,7 @@ var Spengler = {};
 		this.begin();
 		this._tree.push(func);
 		
-		if (func !== Spengler.RAISE_FUNCTIONS.IGNORE) {
+		if (func !== SQL.RAISE_FUNCTIONS.IGNORE) {
 			this._tree.push(", ");
 			this._tree.push(errorMessage);
 		}
@@ -795,32 +725,6 @@ var Spengler = {};
 	};
 	
 	/**
-	 * Creates a new 'Whereable' object.
-	 * 
-	 * A 'Whereable' object is any SQL statement that can have a 'WHERE' clause.
-	 * 
-	 * @constructor
-	 */
-	function Whereable() {
-		this._tree = [];
-	};
-	
-	Whereable.prototype = new Statement();
-	
-	/**
-	 * Adds a 'WHERE' clause to this SQL clause.
-	 * 
-	 * @param {Expr} expr - A SQL expression clause.
-	 * @returns {Clause} This SQL clause.
-	 */
-	Whereable.prototype.where = function(expr) {
-		this._tree.push(" WHERE ");
-		this._tree.push(expr);
-		
-		return this;
-	};
-	
-	/**
 	 * Creates a new SQL 'INSERT' statement.
 	 * 
 	 * @constructor
@@ -831,32 +735,75 @@ var Spengler = {};
 		this._tree = [];
 		this._tree.push("INSERT INTO ");
 		this._tree.push(tableName);
+		this._tree.push(" ");
 	};
 	
-	Insert.prototype = new Statement();
+	Insert.prototype = new Clause();
+	
+	function Columns(names) {
+		this._tree = [];
+		this._tree.push("(");
+		
+		var stopCount = names.length - 1,
+			i;
+		
+		for (i = 0; i < stopCount; i += 1) {
+			this._tree.push(names[i]);
+			this._tree.push(", ");
+		}
+		
+		this._tree.push(names[i]);
+		this._tree.push(")");
+	};
+	
+	Columns.prototype = new Clause();
 	
 	/**
 	 * Adds the 'column-name' clause to this 'INSERT' SQL statement.
 	 * 
-	 * @param {Array} columnNames - The column names as {String}.
+	 * @param {Array} names - The column names as {String}.
 	 * @returns {Insert} This 'INSERT' SQL statement.
 	 */
-	Insert.prototype.columns = function(columnNames) {
-		var stopCount = columnNames.length - 1,
-			i;
-		
-		this._tree.push(" (");
-				
-		for (i = 0; i < stopCount; i += 1) {
-			this._tree.push(columnNames[i]);
-			this._tree.push(", ");
-		}
-		
-		this._tree.push(columnNames[i]);
-		this._tree.push(")");
+	Insert.prototype.columns = function(names) {
+		this._tree.push(new Columns(names));
 		
 		return this;
 	};
+	
+	function Values(values) {
+		this._tree = [];
+		this._tree.push(" VALUES (");
+		
+		var count = values.length - 1,
+			i;
+		
+		for (i = 0; i < count; i += 1) {
+			this._tree = this._tree.concat(_getValueTree(values[i]));
+			this._tree.push(", ");
+		}
+		
+		this._tree = this._tree.concat(_getValueTree(values[i]));
+		this._tree.push(")");
+	};
+	
+	Values.prototype = new Clause();
+	
+	function _getValueTree(value) {
+		var keys,
+			key,
+			tree = [];
+		
+		if (typeof value === 'object') {
+			keys = Object.keys(value);
+			key = keys[0];
+			
+			tree.push(new Param(value[key], key));	
+		} else {
+			tree.push(new Param(value));
+		}
+		
+		return tree;
+	}
 	
 	/**
 	 * Adds the 'VALUES' clause to this 'INSERT' SQL statement.
@@ -865,40 +812,51 @@ var Spengler = {};
 	 * @returns {Insert} This SQL statement.
 	 */
 	Insert.prototype.values = function(values) {
-		var count = values.length - 1,
-			i;
-		
-		this._tree.push(" VALUES (");
-		
-		for (i = 0; i < count; i += 1) {
-			this._values(values[i]);
-			this._tree.push(", ");
-		}
-		
-		this._values(values[i]);
-		this._tree.push(")");
+		this._tree.push(new Values(values));
 		
 		return this;
 	};
 	
-	/**
-	 * Adds a value to the expression tree based on its type. This is used to implement named parameters.
-	 * 
-	 * @param {Object|String} value - A string is added as an unnamed parameter. An object literal takes the key as the named parameter. 
-	 */
-	Insert.prototype._values = function(value) {
-		var keys,
-			key;
+	function Set(columns) {
+		this._tree = [];
+		this._tree.push("SET ");
 		
-		if (typeof value === 'object') {
-			keys = Object.keys(value);
-			key = keys[0];
-			
-			this._tree.push(new Param(value[key], key));	
-		} else {
-			this._tree.push(new Param(value));
+		var count = columns.length - 1,
+			i;
+		
+		for (i = 0; i < count; i += 1) {
+			this._tree = this._tree.concat(_set(columns[i]));
+			this._tree.push(", ");
 		}
+		
+		this._tree = this._tree.concat(_set(columns[i]));
+
+	}
+	
+	Set.prototype = new Clause();
+	
+	function _set(column) {
+		var keys,
+			key,
+			tree = [];
+	
+		keys = Object.keys(column);
+		key = keys[0];
+		
+		tree.push(key);
+		tree.push(" = ");
+		tree.push(new Param(column[key]));
+		
+		return tree;
+	}
+	
+	function Where(expr) {
+		this._tree = [];
+		this._tree.push(" WHERE ");
+		this._tree.push(expr);
 	};
+	
+	Where.prototype = new Clause();
 	
 	/**
 	 * Creates a new SQL 'UPDATE' statement.
@@ -911,9 +869,10 @@ var Spengler = {};
 		this._tree = [];
 		this._tree.push("UPDATE ");
 		this._tree.push(tableName);
+		this._tree.push(" ");
 	};
 	
-	Update.prototype = new Whereable();
+	Update.prototype = new Clause();
 	
 	/**
 	 * Adds the 'SET' clauses to this 'UPDATE' SQL clause.
@@ -924,36 +883,15 @@ var Spengler = {};
 	 * @returns {Update} This SQL clause.
 	 */
 	Update.prototype.set = function(columns) {
-		var count = columns.length - 1,
-			i;
-		
-		this._tree.push(" SET ");
-		
-		for (i = 0; i < count; i += 1) {
-			this._set(columns[i]);
-			this._tree.push(", ");
-		}
-		
-		this._set(columns[i]);
+		this._tree.push(new Set(columns));
 		
 		return this;
 	};
 	
-	/**
-	 * Adds a value to the expression tree based on its type. This is used to implement named parameters.
-	 * 
-	 * @param {Object|String} value - A string is added as an unnamed parameter. An object literal takes the key as the named parameter. 
-	 */
-	Update.prototype._set = function(column) {
-		var keys,
-			key;
-
-		keys = Object.keys(column);
-		key = keys[0];
+	Update.prototype.where = function(expr) {
+		this._tree.push(new Where(expr));
 		
-		this._tree.push(key);
-		this._tree.push(" = ");
-		this._tree.push(new Param(column[key]));
+		return this;
 	};
 	
 	/**
@@ -969,11 +907,70 @@ var Spengler = {};
 	
 	Delete.prototype = new Clause();
 	
+	Delete.prototype.where = function(expr) {
+		this._tree.push(new Where(expr));
+		
+		return this;
+	};
+	
 	// TODO: Implement 'ORDER BY' for 'DELETE' statement.
 	// TODO: Implement 'LIMIT' and 'OFFSET' for 'DELETE' statement.	
-
-	// TODO: Add 'from' and 'where' as optional arguments to the constructor.
-	// TODO: Create 'ResultColumn' prototype.
+	
+	function From(source) {
+		this._tree = [];
+		this._tree.push(" FROM ");
+		this._tree.push(source);
+	};
+	
+	From.prototype = new Clause();
+	
+	function Join(source) {
+		this._tree = [];
+		this._tree.push(" JOIN ");
+		this._tree = this._tree.concat(_getPossibleAliasedTree(source));
+	};
+	
+	Join.prototype = new Clause();
+	
+	function LeftJoin(source) {
+		this._tree = [];
+		this._tree.push(" LEFT JOIN ");
+		this._tree = this._tree.concat(_getPossibleAliasedTree(source));
+	}
+	
+	LeftJoin.prototype = new Clause();
+	
+	function LeftOuterJoin(source) {
+		this._tree = [];
+		this._tree.push(" LEFT OUTER JOIN ");
+		this._tree = this._tree.concat(_getPossibleAliasedTree(source));
+	}
+	
+	LeftOuterJoin.prototype = new Clause();
+	
+	function InnerJoin(source) {
+		this._tree = [];
+		this._tree.push(" INNER JOIN ");
+		this._tree = this._tree.concat(_getPossibleAliasedTree(source));
+	}
+	
+	InnerJoin.prototype = new Clause();
+	
+	function CrossJoin(source) {
+		this._tree = [];
+		this._tree.push(" CROSS JOIN ");
+		this._tree = this._tree.concat(_getPossibleAliasedTree(source));
+	}
+	
+	CrossJoin.prototype = new Clause();
+	
+	function On(expr) {
+		this._tree = [];
+		this._tree.push(" ON ");
+		this._tree.push(expr);
+	};
+	
+	On.prototype = new Clause();
 	
 	/**
 	 * Creates a new SQL 'SELECT' statement.
@@ -995,37 +992,17 @@ var Spengler = {};
 			count = resultColumns.length - 1;
 			
 			for (i = 0; i < count; i += 1) {
-				this._add(resultColumns[i]);
+				this._tree = this._tree.concat(_getPossibleAliasedTree(resultColumns[i]));
 				this._tree.push(", ");
 			}
 			
-			this._add(resultColumns[i]);	
+			this._tree = this._tree.concat(_getPossibleAliasedTree(resultColumns[i]));	
 		}
 	};
 	
-	Select.prototype = new Whereable();
+	Select.prototype = new Clause();
 	
-	/**
-	 * Adds a value to the expression tree. If the value is an object with a single
-	 * key, then the key is used as an alias for the SQL source.
-	 * 
-	 * @param {Object|String} value - The value to add to the expression tree. Use an object literal with the key as the alias to implement an alias for SQL value.
-	 */
-	Select.prototype._add = function(value) {
-		var keys,
-			key;
-	
-		if (typeof value === 'object') {
-			keys = Object.keys(value);
-			key = keys[0];
-			this._tree.push(value[key]);
-			this._tree.push(" AS ");
-			this._tree.push(key);
-		} else {
-			this._tree.push(value);
-		}
-	};
-	
+	// TODO: Implement 'Table' clause.
 	// TODO: Implement alternative sources for the 'FROM' clause instead of just a string for the table name. This means other select statments, which should be wrapped in paranthesis and aliasable.
 	
 	/**
@@ -1035,8 +1012,7 @@ var Spengler = {};
 	 * @returns {Select} This SQL clause.
 	 */
 	Select.prototype.from = function(tableName) {
-		this._tree.push(" FROM ");
-		this._add(tableName);
+		this._tree.push(new From(tableName));
 		
 		return this;
 	};
@@ -1048,8 +1024,7 @@ var Spengler = {};
 	 * @returns {Select} This SQL clause.
 	 */
 	Select.prototype.join = function(tableName) {
-		this._tree.push(" JOIN ");
-		this._add(tableName);
+		this._tree.push(new Join(tableName));
 		
 		return this;
 	};
@@ -1061,9 +1036,9 @@ var Spengler = {};
 	 * @returns {Select} This SQL clause.
 	 */
 	Select.prototype.leftJoin = function(tableName) {
-		this._tree.push(" LEFT");
+		this._tree.push(new LeftJoin(tableName));
 		
-		return this.join(tableName);
+		return this;
 	};
 	
 	/**
@@ -1073,10 +1048,9 @@ var Spengler = {};
 	 * @returns {Select} This SQL clause.
 	 */
 	Select.prototype.leftOuterJoin = function(tableName) {
-		this._tree.push(" LEFT");
-		this._tree.push(" OUTER");
+		this._tree.push(new LeftOuterJoin(tableName));
 		
-		return this.join(tableName);
+		return this;
 	};
 	
 	/**
@@ -1086,9 +1060,9 @@ var Spengler = {};
 	 * @returns {Select} This SQL clause.
 	 */
 	Select.prototype.innerJoin = function(tableName) {
-		this._tree.push(" INNER");
+		this._tree.push(new InnerJoin(tableName));
 		
-		return this.join(tableName);
+		return this;
 	};
 	
 	/**
@@ -1098,9 +1072,9 @@ var Spengler = {};
 	 * @returns {Select} This SQL clause.
 	 */
 	Select.prototype.crossJoin = function(tableName) {
-		this._tree.push(" CROSS");
+		this._tree.push(new CrossJoin(tableName));
 		
-		return this.join(tableName);
+		return this;
 	};
 	
 	/**
@@ -1110,8 +1084,13 @@ var Spengler = {};
 	 * @returns {Select} This SQL clause.
 	 */
 	Select.prototype.on = function(expr) {
-		this._tree.push(" ON ");
-		this._tree.push(expr);
+		this._tree.push(new On(expr));
+		
+		return this;
+	};
+	
+	Select.prototype.where = function(expr) {
+		this._tree.push(new Where(expr));
 		
 		return this;
 	};
@@ -1127,7 +1106,7 @@ var Spengler = {};
 	 * 
 	 * @returns {Expr} A new Expr object.
 	 */
-	Spengler.expr = function() {
+	SQL.expr = function() {
 		return new Expr();
 	};
 	
@@ -1136,17 +1115,33 @@ var Spengler = {};
 	 * 
 	 * @returns {Insert} A new 'INSERT' statement.
 	 */
-	Spengler.insert = function(tableName) {
+	SQL.insert = function(tableName) {
 		return new Insert(tableName);
 	};
 	
+	SQL.columns = function(columnNames) {
+		return new Columns(columnNames);
+	};
+	
+	SQL.values = function(values) {
+		return new Values(values);
+	};
+	
+	SQL.set = function(columns) {
+		return new Set(columns);
+	};
+	
+	SQL.where = function(expr) {
+		return new Where(expr);
+	};
+		
 	/**
 	 * Factory method for creating an 'UPDATE' statement.
 	 * 
 	 * @param {String} tableName - The table name.
 	 * @returns {Update} A new 'UPDATE' statement.
 	 */
-	Spengler.update = function(tableName) {
+	SQL.update = function(tableName) {
 		return new Update(tableName);
 	};
 	
@@ -1155,8 +1150,36 @@ var Spengler = {};
 	 * 
 	 * @returns {Delete} A new 'DELETE' statement.
 	 */
-	Spengler.remove = function(tableName) {
+	SQL.remove = function(tableName) {
 		return new Delete(tableName);
+	};
+	
+	SQL.from = function(source) {
+		return new From(source);
+	};
+	
+	SQL.join = function(source) {
+		return new Join(source);
+	};
+	
+	SQL.leftJoin = function(source) {
+		return new LeftJoin(source);
+	};
+	
+	SQL.leftOuterJoin = function(source) {
+		return new LeftOuterJoin(source);
+	};
+	
+	SQL.innerJoin = function(source) {
+		return new InnerJoin(source);
+	};
+	
+	SQL.crossJoin = function(source) {
+		return new CrossJoin(source);
+	};
+	
+	SQL.on = function(expr) {
+		return new On(expr);
 	};
 	
 	/**
@@ -1165,7 +1188,7 @@ var Spengler = {};
 	 * @param {Array} resultColumns - An array of strings and/or object literals with the keys as the alias for column names.
 	 * @returns {Select} A new 'SELECT' statement.
 	 */
-	Spengler.select = function(resultColumns) {
+	SQL.select = function(resultColumns) {
 		return new Select(resultColumns);
 	};
 }());

@@ -58,25 +58,52 @@ itemsTable.dateAdded = Egon.column('date_added', Egon.TYPES.DATE, {notNull: true
 
 Egon.createAll();
 
-var debugCallback = {
-	handleResult: function(aResultSet) {},
-
-	handleError: function(aError) {
-	    dump("Error: " + aError.message + "\n");
-	},
-		
-	handleCompletion: function(aReason) {
-		dump("Completed!\n");
-	}
-};
-
 Egon.execute(jobOrderNumbersTable.insert({
 	alias: 'test job order number', 
 	accountNumber: '11-1111-1-1-1', 
-	description: 'Test description'}), debugCallback);
+	description: 'Test description'}));
 Egon.execute(jobOrderNumbersTable.update({
 	alias: 'updated job order number',
 	accountNumber: '22-2222-2-2-2',
 	description: 'updated description',
-}).where(jobOrderNumbersTable.id.equals(1)), debugCallback);
-Egon.execute(jobOrderNumbersTable.remove().where(jobOrderNumbersTable.id.equals(1).and().column(jobOrderNumbersTable.alias.equals("temp"))));
+}).where(jobOrderNumbersTable.id.equals(1)));
+
+var resultColumns = [jobOrderNumbersTable.id,
+                     jobOrderNumbersTable.alias,
+                     jobOrderNumbersTable.accountNumber,
+                     jobOrderNumbersTable.description];
+
+var select = jobOrderNumbersTable.select().where(jobOrderNumbersTable.id.equals(1));
+console.log(select.compile().toString());
+
+function Callback() {
+	this.results = [];
+};
+
+Callback.prototype.handleResult = function(aResultSet) {
+	var row;
+	
+	for (row = aResultSet.getNextRow(); row; row = aResultSet.getNextRow()) {
+		this.results.push(row);
+	}
+};
+
+Callback.prototype.handleError = function(aError) {
+	console.error("Error: " + aError.message);
+};
+
+Callback.prototype.handleCompletion = function(aReason) {
+	var i;
+	
+	dump("results: " + this.results + "\n");
+	
+	for (i = 0; i < this.results.length; i += 1) {
+		dump("results[" + i + "]: " + this.results[i].getResultByName("alias") + "\n");
+		dump("results[" + i + "]: " + this.results[i].getResultByName("account_number") + "\n");
+		dump("results[" + i + "]: " + this.results[i].getResultByName("description") + "\n\n");
+	}
+};
+
+Egon.execute(select, new Callback());
+
+//Egon.query(JobOrderNumber).orderBy(JobOrderNumber.id).execute(callback);

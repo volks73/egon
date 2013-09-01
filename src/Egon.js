@@ -156,13 +156,12 @@ var Egon = {};
 	};
 		
 	/**
-	 * Executes a SQL statement. Calls the 'compile' function of the statment,
+	 * Executes a SQL statement. Calls the 'compile' function of the statement,
 	 * binds the parameters, and asynchronously executes.
 	 * 
 	 * @param {Statement} statement - A SQL statement.
 	 * @param {mozIStorageStatementCallback} [callback] - A callback.
 	 */
-	// TODO: Update documentation with description of callback.
 	Egon.execute = function(statement, callback) {
 		var compiled = statement.compile(),
 			stmtParams,
@@ -181,8 +180,22 @@ var Egon = {};
 		stmtParams.addParams(bindings);
 		stmt.bindParameters(stmtParams);
 		
-		stmt.executeAsync(callback);		
+		stmt.executeAsync(callback);	
 	};
+	
+	function Query(category) {
+		
+	};
+	
+	Query.prototype.orderBy = function(categoryProperty) {
+		
+	};
+	
+	Query.prototype.execute = function(onCompletion) {
+		
+	};
+	
+	// TODO: Add 'query' function for Categories and mapped objects.
 	
 	/**
 	 * Creates a SQL database table.
@@ -294,18 +307,20 @@ var Egon = {};
 	 * Creates a SQL {Insert} statement to insert values into this table.
 	 * 
 	 * @param {Object} values - An object literal with the keys as the property name for this table pointing to the columns.
-	 * @returns {Insert} An 'INSERT' SQL clause.
+	 * @returns {Insert} A SQL 'INSERT' statement.
 	 */
 	Table.prototype.insert = function(values) {
 		var columnNames = [],
+			insertValues = [],
 			that = this,
 			columnKey;
 		
 		for (columnKey in values) {
 			columnNames.push(that[columnKey].name);
+			insertValues.push(values[columnKey]);
 		}
 		
-		return Spengler.insert(this._name).columns(columnNames).values(values);
+		return Spengler.insert(this._name).columns(columnNames).values(insertValues);
 	};
 	
 	/**
@@ -345,6 +360,7 @@ var Egon = {};
 	 * @returns {Select} A SQL 'SELECT' statement.
 	 */
 	Table.prototype.select = function(columns) {
+		// TODO: Convert 'columns' to array of {Column} objects and these are converted to an array appropriate for the SQL string builder.
 		return Spengler.select(columns).from(this._name);
 	};
 	
@@ -405,68 +421,68 @@ var Egon = {};
 	
 	/**
 	 * Returns a SQL expression with this column's name as the left operand for the
-	 * equals operator and a value as a literal value for the right operand.
+	 * equals operator and a literal value for the right operand.
 	 * 
-	 * @param {String|Number} value - The right operand value.
+	 * @param {String|Number} rightOperand - The right operand value.
 	 * @returns {Expr} A SQL expression that can be used for a 'WHERE' clause or chained together with other expressions.
 	 */
-	Column.prototype.equals = function(value) {
-		return Spengler.expr().column(this.name).equals(value);
+	Column.prototype.equals = function(rightOperand) {
+		return Spengler.expr().column(this.name).equals(rightOperand);
 	};
 	
 	/**
 	 * Returns a SQL expression with this column's name as the left operand for the
-	 * not equals operator and a value as a literal value for the right operand.
+	 * not equals operator and a literal value for the right operand.
 	 * 
-	 * @param {String|Number} value - The right operand value.
+	 * @param {String|Number} rightOperand - The right operand value.
 	 * @returns {Expr} A SQL expression that can be used for a 'WHERE' clause or chained together with other expressions.
 	 */
-	Column.prototype.notEquals = function(value) {
+	Column.prototype.notEquals = function(rightOperand) {
 		return Spengler.expr().column(this.name).notEquals(value);
 	};
 	
 	/**
 	 * Returns a SQL expression with this column's name as the left operand for the
-	 * less than operator and a value as a literal value for the right operand.
+	 * less than operator and a literal value for the right operand.
 	 * 
-	 * @param {String|Number} value - The right operand value.
+	 * @param {String|Number} rightOperand - The right operand value.
 	 * @returns {Expr} A SQL expression that can be used for a 'WHERE' clause or chained together with other expressions.
 	 */
-	Column.prototype.lessThan = function(value) {
-		return Spengler.expr().column(this.name).lessThan(value);
+	Column.prototype.lessThan = function(rightOperand) {
+		return Spengler.expr().column(this.name).lessThan(rightOperand);
 	};
 	
 	/**
 	 * Returns a SQL expression with this column's name as the left operand for the
-	 * greater than operator and a value as a literal value for the right operand.
+	 * greater than operator and a literal value for the right operand.
 	 * 
-	 * @param {String|Number} value - The right operand value.
+	 * @param {String|Number} rightOperand - The right operand value.
 	 * @returns {Expr} A SQL expression that can be used for a 'WHERE' clause or chained together with other expressions.
 	 */
-	Column.prototype.greaterThan = function(value) {
-		return Spengler.expr().column(this.name).greaterThan(value);
+	Column.prototype.greaterThan = function(rightOperand) {
+		return Spengler.expr().column(this.name).greaterThan(rightOperand);
 	};
 	
 	/**
 	 * Returns a SQL expression with this column's name as the left operand for the
-	 * less than equals operator and a value as a literal value for the right operand.
+	 * less than equals operator and a literal value for the right operand.
 	 * 
-	 * @param {String|Number} value - The right operand value.
+	 * @param {String|Number} rightOperand - The right operand value.
 	 * @returns {Expr} A SQL expression that can be used for a 'WHERE' clause or chained together with other expressions.
 	 */
-	Column.prototype.lessThanEquals = function(value) {
-		return Spengler.expr().column(this.name).lessThanEquals(value);
+	Column.prototype.lessThanEquals = function(rightOperand) {
+		return Spengler.expr().column(this.name).lessThanEquals(rightOperand);
 	};
 	
 	/**
 	 * Returns a SQL expression with this column's name as the left operand for the
-	 * greater than equals operator and a value as a literal value for the right operand.
+	 * greater than equals operator and a literal value for the right operand.
 	 * 
-	 * @param {String|Number} value - The right operand value.
+	 * @param {String|Number} rightOperand - The right operand value.
 	 * @returns {Expr} A SQL expression that can be used for a 'WHERE' clause or chained together with other expressions.
 	 */
-	Column.prototype.greaterThanEquals = function(value) {
-		return Spengler.expr().column(this.name).greaterThanEquals(value);
+	Column.prototype.greaterThanEquals = function(rightOperand) {
+		return Spengler.expr().column(this.name).greaterThanEquals(rightOperand);
 	};
 	
 	/**
