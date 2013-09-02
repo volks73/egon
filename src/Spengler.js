@@ -35,7 +35,7 @@
  * ***** END LICENSE BLOCK ***** */
 var EXPORTED_SYMBOLS = ["Spengler"];
 
-Components.utils.import("resource://Egon/SQL.js");
+Components.utils.import("resource://Egon/Ramis.js");
 
 /**
  * @namespace
@@ -43,7 +43,8 @@ Components.utils.import("resource://Egon/SQL.js");
 var Spengler = {};
 
 (function() {
-	var dbConn;
+	var dbConn,
+		metadata = {};
 
 	// TODO: Add functions for formatting and returning values appropriate for interaction with the database.
 	// SQLite3 supported types: NULL, INTEGER, REAL, TEXT, and BLOB. Boolean values are handled as integers 0 = false, 1 = true
@@ -133,16 +134,14 @@ var Spengler = {};
 	};
 	
 	/**
-	 * Creates the tables in the database.
-	 * 
-	 * @param {Array} tables - An array with {Table} elements.
+	 * Creates the metadata and/or schema for the database.
 	 */
-	Spengler.createAll = function(tables) {
-		var stmt,
-			i;
+	Spengler.createAll = function() {
+		var table,
+			stmt;
 		
-		for (i = 0; i < tables.length; i += 1) {
-			stmt = dbConn.createAsyncStatement(tables[i].toString());
+		for (table in metadata) {
+			stmt = dbConn.createAsyncStatement(metadata[table].toString());
 			stmt.executeAsync();
 		}
 	};
@@ -197,13 +196,13 @@ var Spengler = {};
 		return this._sql;
 	};
 	
-	function Statement() {
-		this.clause;
+	function Statement(clause) {
+		this._clause = clause;
 	};
 	
 	Statement.prototype.compile = function() {
 		var sql = '',
-			tree = this.clause.tree(),
+			tree = this._clause.tree(),
 			params = {},
 			paramCount = 0,
 			node,
@@ -281,6 +280,8 @@ var Spengler = {};
 				}());
 			}
 		}
+		
+		metadata[this._name] = this;
 	};
 	
 	/**
@@ -360,7 +361,7 @@ var Spengler = {};
 	 * Creates a SQL {Insert} statement to insert values into this table.
 	 * 
 	 * @param {Object} values - An object literal with the keys as the property name for this table pointing to the columns.
-	 * @returns {Insert} A SQL 'INSERT' statement.
+	 * @returns {Statement} An 'INSERT' statement.
 	 */
 	Table.prototype.insert = function(values) {
 		var columnNames = [],
@@ -373,7 +374,7 @@ var Spengler = {};
 			insertValues.push(values[columnKey]);
 		}
 		
-		return Spengler.insert(this._name).columns(columnNames).values(insertValues);
+		return new Statement(Spengler.insert(this._name).columns(columnNames).values(insertValues));
 	};
 	
 	/**
@@ -403,7 +404,7 @@ var Spengler = {};
 	 * @returns {Delete} A SQL 'DELETE' statement.
 	 */
 	Table.prototype.remove = function() {
-		return Spengler.remove(this._name);		
+		
 	};
 	
 	/**
@@ -413,8 +414,7 @@ var Spengler = {};
 	 * @returns {Select} A SQL 'SELECT' statement.
 	 */
 	Table.prototype.select = function(columns) {
-		// TODO: Convert 'columns' to array of {Column} objects and these are converted to an array appropriate for the SQL string builder.
-		return Spengler.select(columns).from(this._name);
+		
 	};
 	
 	// TODO: Add support for creating indices for a table on a column.

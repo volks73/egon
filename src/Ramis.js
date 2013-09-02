@@ -153,7 +153,7 @@ var Ramis = {};
 		
 		return str + ": '" + this.value + "'}";
 	};
-	
+		
 	/**
 	 * Creates a new clause.
 	 * 
@@ -959,6 +959,14 @@ var Ramis = {};
 		return this;
 	};
 	
+	/**
+	 * Creates a new 'LEFT JOIN source join-constraint' clause.
+	 * 
+	 * @constructor
+	 * 
+	 * @param {String|SingleSource} source - The source of the join clause. If {String} is used, then the source is assumed to be table name and a {TableSource} is automatically created without an alias or database name prefix.
+	 * @param {On|Using} [constraint] - The join constraint.
+	 */
 	function LeftJoin(source, constraint) {
 		this._tree = [];
 		this._tree.push(" LEFT JOIN ");
@@ -971,6 +979,14 @@ var Ramis = {};
 	
 	LeftJoin.prototype = new Join();
 	
+	/**
+	 * Creates a new 'LEFT OUTER JOIN source join-constraint' clause.
+	 * 
+	 * @constructor
+	 * 
+	 * @param {String|SingleSource} source - The source of the join clause. If {String} is used, then the source is assumed to be table name and a {TableSource} is automatically created without an alias or database name prefix.
+	 * @param {On|Using} [constraint] - The join constraint.
+	 */
 	function LeftOuterJoin(source, constraint) {
 		this._tree = [];
 		this._tree.push(" LEFT OUTER JOIN ");
@@ -983,6 +999,14 @@ var Ramis = {};
 	
 	LeftOuterJoin.prototype = new Clause();
 	
+	/**
+	 * Creates a new 'INNER JOIN source join-constraint' clause.
+	 * 
+	 * @constructor
+	 * 
+	 * @param {String|SingleSource} source - The source of the join clause. If {String} is used, then the source is assumed to be table name and a {TableSource} is automatically created without an alias or database name prefix.
+	 * @param {On|Using} [constraint] - The join constraint.
+	 */
 	function InnerJoin(source, constraint) {
 		this._tree = [];
 		this._tree.push(" INNER JOIN ");
@@ -995,6 +1019,14 @@ var Ramis = {};
 	
 	InnerJoin.prototype = new Clause();
 	
+	/**
+	 * Creates a new 'CROSS JOIN source join-constraint' clause.
+	 * 
+	 * @constructor
+	 * 
+	 * @param {String|SingleSource} source - The source of the join clause. If {String} is used, then the source is assumed to be table name and a {TableSource} is automatically created without an alias or database name prefix.
+	 * @param {On|Using} [constraint] - The join constraint.
+	 */
 	function CrossJoin(source, constraint) {
 		this._tree = [];
 		this._tree.push(" CROSS JOIN ");
@@ -1205,7 +1237,24 @@ var Ramis = {};
 		
 		tree.push(key);
 		tree.push(" = ");
-		tree.push(new Param(column[key]));
+		
+		if (column[key] instanceof string) {
+			tree.push(new Param(column[key]));	
+		} else {
+			tree = tree.concat(_addNamedParam(column[key]));
+		}
+		
+		return tree;
+	}
+	
+	function _addNamedParam(value) {
+		var keys,
+			key,
+			tree = [];
+		
+		keys = Object.keys(value);
+		key = keys[0];
+		tree.push(new Param(value[key], key));
 		
 		return tree;
 	}
