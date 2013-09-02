@@ -115,7 +115,7 @@ var Ramis = {};
 		FAIL: 'FAIL',
 	}; 
 	
-	// TODO: List constructors alphebtically.
+	// TODO: List constructors alphabetically.
 	
 	/**
 	 * Creates a new bind parameter object.
@@ -732,7 +732,7 @@ var Ramis = {};
 		} else if (source instanceof Source) {
 			this._tree.push(source);
 		} else {
-			// TODO: Throw custom IllegalArgument exception.
+			throw new TypeError("The 'source' argument is not valid");
 		}
 	};
 	
@@ -770,7 +770,7 @@ var Ramis = {};
 				this._tree.push(source);
 				this._tree.push(")");
 			} else {
-				// TODO: Throw IllegalArgument exception.
+				throw new TypeError("The 'source' argument is not valid");
 			}
 		}
 		
@@ -778,7 +778,7 @@ var Ramis = {};
 			if (join instanceof Join) {
 				this._tree.push(join);
 			} else {
-				// TODO: Throw IllegalArgument exception.
+				throw new TypeError("The 'join' argument is not valid");
 			}
 		}
 	};
@@ -806,14 +806,6 @@ var Ramis = {};
 		}
 		
 		this._tree.push(tableName);
-		
-		if (typeof join !== 'undefined') {
-			if (join instanceof Join) {
-				this._tree.push(join);
-			} else {
-				// TODO: Throw IllegalArgument exception.
-			}
-		}
 	};
 	
 	TableSource.prototype = new SingleSource();
@@ -859,25 +851,17 @@ var Ramis = {};
 	 * 
 	 * @constructor
 	 * 
-	 * @param {Select} selectClause - A select clause.
+	 * @param {Select} select - A select clause.
 	 */
-	function SelectSource(selectClause) {
+	function SelectSource(select) {
 		this._tree = [];
 		
-		if (selectClause instanceof Select) {
+		if (select instanceof Select) {
 			this._tree.push("(");
-			this._tree.push(selectClause);
+			this._tree.push(select);
 			this._tree.push(")");
 		} else {
-			// TODO: Throw IllegalArgument exception.
-		}
-		
-		if (typeof join !== 'undefined') {
-			if (join instanceof Join) {
-				this._tree.push(join);
-			} else {
-				// TODO: Throw IllegalArgument exception.
-			}
+			throw new TypeError("The 'select' is not valid");
 		}
 	};
 	
@@ -926,7 +910,7 @@ var Ramis = {};
 		} else if (source instanceof SingleSource) {
 			return source;
 		} else {
-			// TODO: Throw IllegalArgument exception.
+			throw new TypeError("The 'source' argument is not valid");
 		}
 	};
 	
@@ -939,7 +923,7 @@ var Ramis = {};
 		if (constraint instanceof JoinConstraint) {
 			return constraint;
 		} else {
-			// TODO: Throw IllegalArgument exception.
+			throw new TypeError("The 'constraint' argument is not valid");
 		}
 	};
 	
@@ -953,7 +937,7 @@ var Ramis = {};
 		if (expr instanceof Expr) {
 			this._tree.push(new On(expr));
 		} else {
-			// TODO: Throw IllegalArgument exception.
+			throw new TypeError("The 'expr' argument is not valid");
 		}
 		
 		return this;
@@ -969,7 +953,7 @@ var Ramis = {};
 		if (value instanceof Array) {
 			this._tree.push(new Using(columnNames));
 		} else {
-			// TODO: Throw IllegalArgument execption.
+			throw new TypeError("The 'columnNames' argument is not valid");
 		}
 		
 		return this;
@@ -1048,7 +1032,7 @@ var Ramis = {};
 		if (expr instanceof Expr) {
 			this._tree.push(expr);
 		} else {
-			// TODO: Throw IllegalArgument exception.
+			throw new TypeError("The 'expr' argument is not valid");
 		}
 	};
 	
@@ -1124,7 +1108,7 @@ var Ramis = {};
 			} else if (values instanceof Array) {
 				this._tree.push(new Values(values));
 			} else {
-				// TODO: Throw IllegalArgument exception.
+				throw new TypeError("The 'values' argument is not valid");
 			}
 		}
 	};
@@ -1297,7 +1281,7 @@ var Ramis = {};
 			} else if (columns instanceof Array) {
 				this._tree.push(new Columns(columns));
 			} else {
-				// TODO: Throw IllegalArgument exception.
+				throw new TypeError("The 'columns' argument is not valid");
 			}
 		}
 		
@@ -1307,7 +1291,7 @@ var Ramis = {};
 			} else if (values instanceof Array) {
 				this._tree.push(new Values(values));
 			} else {
-				// TODO: Throw IllegalArgument exception.
+				throw new TypeError("The 'values' argument is not valid");
 			}
 		}
 	};
@@ -1337,7 +1321,7 @@ var Ramis = {};
 		if (this.previous() instanceof Columns) {
 			this._tree.push(new Values(values));
 		} else {
-			// TODO: Throw IllegalOperation exception.
+			throw new SyntaxError("A 'Values' clause should only come after a 'Columns' clause");
 		}
 		
 		return this;
@@ -1381,7 +1365,7 @@ var Ramis = {};
 		if (this.previous() instanceof Set) {
 			this._tree.push(new Where(expr));
 		} else {
-			// TODO: Throw IllegalOperation exception.
+			throw new SyntaxError("The 'Where' clause should only come after a 'Set' clause");
 		}
 		
 		return this;
@@ -1412,7 +1396,7 @@ var Ramis = {};
 		if (expr instanceof Expr) {
 			this._tree.push(new Where(expr));	
 		} else {
-			// TODO: Throw IllegalArgument exception.
+			throw new TypeError("The 'expr' argument is not valid");
 		}
 				
 		return this;
@@ -1437,7 +1421,7 @@ var Ramis = {};
 			} else if (resultColumns instanceof ResultColumns) {
 				this._tree.push(resultColumns);
 			} else {
-				// TODO: Throw IllegalArgument exception.
+				throw new TypeError("The 'resultColumns' argument is not valid");
 			}
 		}
 		
@@ -1445,7 +1429,7 @@ var Ramis = {};
 			if (from instanceof From) {
 				this._tree.push(from);	
 			} else {
-				// TODO: Throw IllegalArgument exception.
+				throw new TypeError("The 'from' argument is not valid");
 			}
 		}
 		
@@ -1453,7 +1437,7 @@ var Ramis = {};
 			if (where instanceof Where) {
 				this._tree.push(where);
 			} else {
-				// TODO: Throw IllegalArgument exception.
+				throw new TypeError("The 'where' argument is not valid");
 			}
 		}
 	};
@@ -1470,7 +1454,7 @@ var Ramis = {};
 		if (this.previous() instanceof ResultColumns) {
 			this._tree.push(new From(source));	
 		} else {
-			// TODO: Throw IllegalOperation exception
+			throw new SyntaxError("The 'From' clause should only come after the 'ResultColumns' clause");
 		}
 		
 		return this;
@@ -1487,7 +1471,7 @@ var Ramis = {};
 		if (this.previous() instanceof From) {
 			this._tree.push(new Join(source, constraint));
 		} else {
-			// TODO: Throw IllegalOperation exception.
+			throw new SyntaxError("The 'Join' clause should only come after a 'From' clause");
 		}
 		
 		return this;
@@ -1504,7 +1488,7 @@ var Ramis = {};
 		if (this.previous() instanceof From) {
 			this._tree.push(new LeftJoin(source, constraint));
 		} else {
-			// TODO: Throw IllegalOperation exception.
+			throw new SyntaxError("The 'Left Join' clause should only come after a 'From' clause");
 		}
 		
 		return this;
@@ -1521,7 +1505,7 @@ var Ramis = {};
 		if (this.previous() instanceof From) {
 			this._tree.push(new LeftOuterJoin(source, constraint));
 		} else {
-			// TODO: Throw IllegalOperation exception.
+			throw new SyntaxError("The 'Left Outer Join' clause should only come after a 'From' clause");
 		}
 		
 		return this;
@@ -1538,7 +1522,7 @@ var Ramis = {};
 		if (this.previous() instanceof From) {
 			this._tree.push(new InnerJoin(source, constraints));
 		} else {
-			// TODO: Throw IllegalOperation exception.
+			throw new SyntaxError("The 'Inner Join' clause should only come after a 'From' clause");
 		}
 		
 		return this;
@@ -1555,7 +1539,7 @@ var Ramis = {};
 		if (this.previous() instanceof From) {
 			this._tree.push(new CrossJoin(source, constraint));
 		} else {
-			// TODO: Throw IllegalOperation exception.
+			throw new SyntaxError("The 'Cross Join' clause should only come after a 'From' clause");
 		}
 		
 		return this;
@@ -1571,7 +1555,7 @@ var Ramis = {};
 		if (this.previous() instanceof Join) {
 			this._tree.push(new On(expr));
 		} else {
-			// TODO: Throw IllegalOperation exception.
+			throw new SyntaxError("The 'On' clause should only come after a 'Join' clause");
 		}
 		
 		return this;
@@ -1587,7 +1571,7 @@ var Ramis = {};
 		if (this.previous() instanceof Join) {
 			this._tree.push(new Using(columnNames));
 		} else {
-			// TODO: Throw IllegalOperation exception.
+			throw new SyntaxError("The 'Using' clause should only come after a 'Join' clause");
 		}
 		
 		return this;
