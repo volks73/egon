@@ -1,7 +1,3 @@
-//var testInsert = Ramis.insert('test_insert_table');
-//console.log(testInsert.toString());
-
-
 var tableName = 'job_order_numbers',
 	insertColumns = ['alias', 'account_number', 'description'],
 	insertValues = [{alias: 'test'}, {accountNumber: '11-1111-1-1-1'}, {description: 'test description'}],
