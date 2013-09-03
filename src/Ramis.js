@@ -51,9 +51,9 @@ var Ramis = {};
      * @constant
      */
     Ramis.COLLATE = {
-            BINARY: 'BINARY',
-            NOCASE: 'NOCASE',
-            RTRIM: 'RTRIM',	
+        BINARY: 'BINARY',
+        NOCASE: 'NOCASE',
+        RTRIM: 'RTRIM'
     };
 
     /**
@@ -64,29 +64,29 @@ var Ramis = {};
      * @constant
      */
     Ramis.OPERATORS = {
-            CONCAT: '||',
-            MULTIPLY: '*',
-            DIVIDE: '/',
-            MODULO: '%',
-            ADD: '+',
-            SUBTRACT: '-',
-            LESS_THAN: '<',
-            LESS_THAN_EQUALS: '<=',
-            GREATER_THAN: '>',
-            GREATER_THAN_EQUALS: '>=',
-            EQUALS: '=',
-            NOT_EQUALS: '!=',
-            IS: 'IS',
-            IS_NOT: 'IS NOT',
-            IN: 'IN',
-            LIKE: 'LIKE',
-            GLOB: 'GLOB',
-            MATCH: 'MATCH',
-            REGEXP: 'REGEXP',
-            AND: 'AND',
-            OR: 'OR',
-            NOT: 'NOT',
-            COLLATE: '~',
+        CONCAT: '||',
+        MULTIPLY: '*',
+        DIVIDE: '/',
+        MODULO: '%',
+        ADD: '+',
+        SUBTRACT: '-',
+        LESS_THAN: '<',
+        LESS_THAN_EQUALS: '<=',
+        GREATER_THAN: '>',
+        GREATER_THAN_EQUALS: '>=',
+        EQUALS: '=',
+        NOT_EQUALS: '!=',
+        IS: 'IS',
+        IS_NOT: 'IS NOT',
+        IN: 'IN',
+        LIKE: 'LIKE',
+        GLOB: 'GLOB',
+        MATCH: 'MATCH',
+        REGEXP: 'REGEXP',
+        AND: 'AND',
+        OR: 'OR',
+        NOT: 'NOT',
+        COLLATE: '~'
     };
 
     /**
@@ -97,10 +97,10 @@ var Ramis = {};
      * @constant
      */
     Ramis.LITERAL_VALUES = {
-            NULL: 'NULL',
-            CURRENT_TIME: 'CURRENT_TIME',
-            CURRENT_DATE: 'CURRENT_DATE',
-            CURRENT_TIMESTAMP: 'CURRENT_TIMESTAMP',
+        NULL: 'NULL',
+        CURRENT_TIME: 'CURRENT_TIME',
+        CURRENT_DATE: 'CURRENT_DATE',
+        CURRENT_TIMESTAMP: 'CURRENT_TIMESTAMP',
     };
 
     /**
@@ -111,11 +111,11 @@ var Ramis = {};
      * @constant
      */
     Ramis.RAISE_FUNCTIONS = {
-            IGNORE: 'IGNORE',
-            ROLLBACK: 'ROLLBACK',
-            ABORT: 'ABORT',
-            FAIL: 'FAIL',
-    }; 
+        IGNORE: 'IGNORE',
+        ROLLBACK: 'ROLLBACK',
+        ABORT: 'ABORT',
+        FAIL: 'FAIL'
+    };
 
     // TODO: List constructors alphabetically.
 
@@ -147,13 +147,12 @@ var Ramis = {};
      * 
      * @returns {String}
      */
-    Param.prototype.toString = function() {
+    Param.prototype.toString = function () {
         var str = "{";
 
         if (this.key !== undefined) {
-            str += this.key; 
-        }
-        else {
+            str += this.key;
+        } else {
             str += "?";
         }
 
@@ -175,15 +174,14 @@ var Ramis = {};
      * 
      * @returns {Array} All nodes in order.
      */
-    Clause.prototype.tree = function() {
+    Clause.prototype.tree = function () {
         var tree = [],
-        i;
+            i;
 
         for (i = 0; i < this.nodes.length; i += 1) {
             if (this.nodes[i] instanceof Clause) {
                 tree = tree.concat(this.nodes[i].tree());
-            }
-            else {
+            } else {
                 tree.push(this.nodes[i]);
             }
         }
@@ -196,7 +194,7 @@ var Ramis = {};
      * 
      * @returns {Clause|String} The previous node.
      */
-    Clause.prototype.previous = function() {
+    Clause.prototype.previous = function () {
         return this.nodes[this.nodes.length - 1];
     };
 
@@ -205,10 +203,10 @@ var Ramis = {};
      * 
      * @returns {String}
      */
-    Clause.prototype.toString = function() {
+    Clause.prototype.toString = function () {
         var tree = this.tree(),
-        str = '',
-        i;
+            str = '',
+            i;
 
         for (i = 0; i < tree.length; i += 1) {
             str += tree[i].toString();
@@ -264,19 +262,17 @@ var Ramis = {};
      *            value - A literal value.
      * @returns {Expr} This Ramis expression clause.
      */
-    Expr.prototype.literal = function(value) {
+    Expr.prototype.literal = function (value) {
         if (value === Ramis.LITERAL_VALUE.NULL) {
             this.nodes.push(Ramis.LITERAL_VALUE.NULL);
         } else if (value === Ramis.LITERAL_VALUE.CURRENT_TIME) {
             this.nodes.push(Ramis.LITERAL_VALUE.CURRENT_TIME);
-        }
-        else if (value === Ramis.LITERAL_VALUE.CURRENT_DATE) {
+        } else if (value === Ramis.LITERAL_VALUE.CURRENT_DATE) {
             this.nodes.push(Ramis.LITERAL_VALUE.CURRENT_DATE);
-        }
-        else if (value === Ramis.LITERAL_VALUE.CURRENT_TIMESTAMP) {
+        } else if (value === Ramis.LITERAL_VALUE.CURRENT_TIMESTAMP) {
             this.nodes.push(Ramis.LITERAL_VALUE.CURRENT_TIMESTAMP);
         } else {
-            this.nodes.push(new Param(value));	
+            this.nodes.push(new Param(value));
         }
 
         return this;
@@ -289,7 +285,7 @@ var Ramis = {};
      *            columnName - A column name.
      * @returns {Expr} This Ramis expression clause.
      */
-    Expr.prototype.column = function(columnName) {
+    Expr.prototype.column = function (columnName) {
         this.nodes.push(columnName);
 
         return this;
@@ -302,7 +298,7 @@ var Ramis = {};
      * 
      * @returns {Expr} This Ramis expression clause.
      */
-    Expr.prototype.begin = function() {
+    Expr.prototype.begin = function () {
         this.nodes.push("(");
 
         return this;
@@ -315,7 +311,7 @@ var Ramis = {};
      * 
      * @returns {Expr} This Ramis expression clause.
      */
-    Expr.prototype.end = function() {
+    Expr.prototype.end = function () {
         this.nodes.push(")");
 
         return this;
@@ -328,7 +324,7 @@ var Ramis = {};
      *            [operand] - The operand to the binary operator.
      * @returns {Expr} This Ramis expression clause.
      */
-    Expr.prototype.not = function(operand) {
+    Expr.prototype.not = function (operand) {
         this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.NOT, operand));
 
         return this;
@@ -341,7 +337,7 @@ var Ramis = {};
      *            rightOperand - The right operand to the binary operator.
      * @returns {Expr} This Ramis expression clause.
      */
-    Expr.prototype.concat = function(rightOperand) {
+    Expr.prototype.concat = function (rightOperand) {
         this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.CONCAT, rightOperand));
 
         return this;
@@ -354,7 +350,7 @@ var Ramis = {};
      *            rightOperand - The right operand to the binary operator.
      * @returns {Expr} This Ramis expression clause.
      */
-    Expr.prototype.multiply = function(rightOperand) {
+    Expr.prototype.multiply = function (rightOperand) {
         this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.MULTIPLY, rightOperand));
 
         return this;
@@ -367,7 +363,7 @@ var Ramis = {};
      *            rightOperand - The right operand to the binary operator.
      * @returns {Expr} This Ramis expression clause.
      */
-    Expr.prototype.times = function(rightOperand) {
+    Expr.prototype.times = function (rightOperand) {
         this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.MULTIPLY, rightOperand));
 
         return this;
@@ -380,7 +376,7 @@ var Ramis = {};
      *            rightOperand - The right operand to the binary operator.
      * @returns {Expr} This Ramis expression clause.
      */
-    Expr.prototype.divide = function(rightOperand) {
+    Expr.prototype.divide = function (rightOperand) {
         this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.DIVIDE, rightOperand));
 
         return this;
@@ -393,7 +389,7 @@ var Ramis = {};
      *            rightOperand - The right operand to the binary operator.
      * @returns {Expr} This Ramis expression clause.
      */
-    Expr.prototype.dividedBy = function(rightOperand) {
+    Expr.prototype.dividedBy = function (rightOperand) {
         this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.DIVIDE, rightOperand));
 
         return this;
@@ -406,7 +402,7 @@ var Ramis = {};
      *            rightOperand - The right operand to the binary operator.
      * @returns {Expr} This Ramis expression clause.
      */
-    Expr.prototype.modulo = function(rightOperand) {
+    Expr.prototype.modulo = function (rightOperand) {
         this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.MODULO, rightOperand));
 
         return this;
@@ -419,7 +415,7 @@ var Ramis = {};
      *            rightOperand - The right operand to the binary operator.
      * @returns {Expr} This Ramis expression clause.
      */
-    Expr.prototype.remainder = function(rightOperand) {
+    Expr.prototype.remainder = function (rightOperand) {
         this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.MODULO, rightOperand));
 
         return this;
@@ -432,7 +428,7 @@ var Ramis = {};
      *            rightOperand - The right operand to the binary operator.
      * @returns {Expr} This Ramis expression clause.
      */
-    Expr.prototype.add = function(rightOperand) {
+    Expr.prototype.add = function (rightOperand) {
         this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.ADD, rightOperand));
 
         return this;
@@ -445,7 +441,7 @@ var Ramis = {};
      *            rightOperand - The right operand to the binary operator.
      * @returns {Expr} This Ramis expression clause.
      */
-    Expr.prototype.subtract = function(rightOperand) {
+    Expr.prototype.subtract = function (rightOperand) {
         this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.SUBTRACT, rightOperand));
 
         return this;
@@ -458,7 +454,7 @@ var Ramis = {};
      *            [rightOperand] - The right operand to the binary operator.
      * @returns {Expr} This Ramis expression clause.
      */
-    Expr.prototype.lessThan = function(rightOperand) {
+    Expr.prototype.lessThan = function (rightOperand) {
         this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.MULTIPLY, rightOperand));
 
         return this;
@@ -471,7 +467,7 @@ var Ramis = {};
      *            [rightOperand] - The right operand to the binary operator.
      * @returns {Expr} This Ramis expression clause.
      */
-    Expr.prototype.lessThanEquals = function(rightOperand) {
+    Expr.prototype.lessThanEquals = function (rightOperand) {
         this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.LESS_THAN_EQUALS, rightOperand));
 
         return this;
@@ -484,7 +480,7 @@ var Ramis = {};
      *            [rightOperand] - The right operand to the binary operator.
      * @returns {Expr} This Ramis expression clause.
      */
-    Expr.prototype.greaterThan = function(rightOperand) {
+    Expr.prototype.greaterThan = function (rightOperand) {
         this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.GREATER_THAN, rightOperand));
 
         return this;
@@ -497,7 +493,7 @@ var Ramis = {};
      *            [rightOperand] - The right operand to the binary operator.
      * @returns {Expr} This Ramis expression clause.
      */
-    Expr.prototype.greaterThanEquals = function(rightOperand) {
+    Expr.prototype.greaterThanEquals = function (rightOperand) {
         this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.GREATER_THAN_EQUALS, rightOperand));
 
         return this;
@@ -510,7 +506,7 @@ var Ramis = {};
      *            rightOperand - The right operand to the binary operator.
      * @returns {Expr} This Ramis expression clause.
      */
-    Expr.prototype.equals = function(rightOperand) {
+    Expr.prototype.equals = function (rightOperand) {
         this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.EQUALS, rightOperand));
 
         return this;
@@ -523,7 +519,7 @@ var Ramis = {};
      *            [rightOperand] - The right operand to the binary operator.
      * @returns {Expr} This Ramis expression clause.
      */
-    Expr.prototype.notEquals = function(rightOperand) {
+    Expr.prototype.notEquals = function (rightOperand) {
         this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.NOT_EQUALS, rightOperand));
 
         return this;
@@ -536,7 +532,7 @@ var Ramis = {};
      *            [rightOperand] - The right operand to the binary operator.
      * @returns {Expr} This Ramis expression clause.
      */
-    Expr.prototype.and = function(rightOperand) {
+    Expr.prototype.and = function (rightOperand) {
         this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.AND, rightOperand));
 
         return this;
@@ -549,7 +545,7 @@ var Ramis = {};
      *            [rightOperand] - The right operand to the binary operator.
      * @returns {Expr} This Ramis expression clause.
      */
-    Expr.prototype.or = function(rightOperand) {
+    Expr.prototype.or = function (rightOperand) {
         this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.OR, rightOperand));
 
         return this;
@@ -562,7 +558,7 @@ var Ramis = {};
      *            [rightOperand] - The right operand to the binary operator.
      * @returns {Expr} This Ramis expression clause.
      */
-    Expr.prototype.like = function(rightOperand) {
+    Expr.prototype.like = function (rightOperand) {
         this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.LIKE, rightOperand));
 
         return this;
@@ -575,7 +571,7 @@ var Ramis = {};
      *            [rightOperand] - The right operand to the binary operator.
      * @returns {Expr} This Ramis expression clause.
      */
-    Expr.prototype.glob = function(rightOperand) {
+    Expr.prototype.glob = function (rightOperand) {
         this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.GLOB, rightOperand));
 
         return this;
@@ -588,7 +584,7 @@ var Ramis = {};
      *            [rightOperand] - The right operand to the binary operator.
      * @returns {Expr} This Ramis expression clause.
      */
-    Expr.prototype.regexp = function(rightOperand) {
+    Expr.prototype.regexp = function (rightOperand) {
         this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.REGEXP, rightOperand));
 
         return this;
@@ -601,7 +597,7 @@ var Ramis = {};
      *            [rightOperand] - The right operand to the binary operator.
      * @returns {Expr} This Ramis expression clause.
      */
-    Expr.prototype.match = function(rightOperand) {
+    Expr.prototype.match = function (rightOperand) {
         this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.MATCH, rightOperand));
 
         return this;
@@ -614,7 +610,7 @@ var Ramis = {};
      *            [rightOperand] - The right operand to the binary operator.
      * @returns {Expr} This Ramis expression clause.
      */
-    Expr.prototype.is = function(rightOperand) {
+    Expr.prototype.is = function (rightOperand) {
         this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.IS, rightOperand));
 
         return this;
@@ -627,7 +623,7 @@ var Ramis = {};
      *            [rightOperand] - The right operand to the binary operator.
      * @returns {Expr} This Ramis expression clause.
      */
-    Expr.prototype.isNot = function(rightOperand) {
+    Expr.prototype.isNot = function (rightOperand) {
         this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.IS_NOT, rightOperand));
 
         return this;
@@ -640,7 +636,7 @@ var Ramis = {};
      *            [rightOperand] - The right operand to the binary operator.
      * @returns {Expr} This Ramis expression clause.
      */
-    Expr.prototype.in = function(rightOperand) {
+    Expr.prototype.in = function (rightOperand) {
         this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.IN, rightOperand));
 
         return this;
@@ -655,7 +651,7 @@ var Ramis = {};
      *            toType - The type to convert or cast the expr to.
      * @returns {Expr} This Ramis expression clause.
      */
-    Expr.prototype.cast = function(expr, toType) {
+    Expr.prototype.cast = function (expr, toType) {
         this.nodes.push(" CAST ");
         this.begin();
         this.nodes.push(expr);
@@ -675,7 +671,7 @@ var Ramis = {};
      *            collation - The collation.
      * @returns {Expr} This Ramis expression clause.
      */
-    Expr.prototype.collate = function(expr, collation) {
+    Expr.prototype.collate = function (expr, collation) {
         this.nodes.push(expr);
         this.nodes.push(collation);
 
@@ -687,7 +683,7 @@ var Ramis = {};
      * 
      * @returns {Expr} This Ramis expression clause.
      */
-    Expr.prototype.isNull = function() {
+    Expr.prototype.isNull = function () {
         this.nodes.push(" ISNULL");
 
         return this;
@@ -698,7 +694,7 @@ var Ramis = {};
      * 
      * @returns {Expr} This Ramis expression clause.
      */
-    Expr.prototype.notNull = function() {
+    Expr.prototype.notNull = function () {
         this.nodes.push(" NOTNULL");
 
         return this;
@@ -711,7 +707,7 @@ var Ramis = {};
      *            expr - The escape expression.
      * @returns {Expr} This Ramis expression clause.
      */
-    Expr.prototype.escape = function(expr) {
+    Expr.prototype.escape = function (expr) {
         this.nodes.push(" ESCAPE ");
         this.nodes.push(expr);
 
@@ -727,7 +723,7 @@ var Ramis = {};
      *            rightOperand - The right operand.
      * @returns {Expr} This Ramis expression clause.
      */
-    Expr.prototype.between = function(leftOperand, rightOperand) {
+    Expr.prototype.between = function (leftOperand, rightOperand) {
         this.nodes.push(" BETWEEN ");
         this.nodes.push(leftOperand);
         this.nodes.push(" AND ");
@@ -743,7 +739,7 @@ var Ramis = {};
      *            select - A select clause.
      * @returns {Expr} This Ramis expression clause.
      */
-    Expr.prototype.exists = function(select) {
+    Expr.prototype.exists = function (select) {
         this.nodes.push(" EXISTS ");
         this.begin();
         this.nodes.push(select);
@@ -765,7 +761,7 @@ var Ramis = {};
      *            elseExpr - The else expression.
      * @returns {Expr} This Ramis expression clause.
      */
-    Expr.prototype.case = function(expr, whenExpr, thenExpr, elseExpr) {
+    Expr.prototype.case = function (expr, whenExpr, thenExpr, elseExpr) {
         this.nodes.push(" CASE ");
         this.nodes.push(expr);
         this.nodes.push(" WHEN ");
@@ -777,7 +773,7 @@ var Ramis = {};
         this.nodes.push(" END");
 
         return this;
-    }; 
+    };
 
     /**
      * Adds the 'raise-function' clause to the expression tree.
@@ -788,7 +784,7 @@ var Ramis = {};
      *            errorMessage - The error message.
      * @returns {Expr} This Ramis expression clause.
      */
-    Expr.prototype.raise = function(func, errorMessage) {
+    Expr.prototype.raise = function (func, errorMessage) {
         this.nodes.push(" RAISE ");
         this.begin();
         this.nodes.push(func);
@@ -810,7 +806,7 @@ var Ramis = {};
      *            expr - An Ramis expression clause.
      * @returns {Expr} This Ramis expression clause.
      */
-    Expr.prototype.expr = function(expr) {
+    Expr.prototype.expr = function (expr) {
         this.nodes.push(expr);
 
         return this;
@@ -896,7 +892,7 @@ var Ramis = {};
      * @returns {TableSource} This source clause for cascading or chaining
      *          additional clauses.
      */
-    TableSource.prototype.as = function(tableAlias) {
+    TableSource.prototype.as = function (tableAlias) {
         this.nodes.push(new As(tableAlias));
 
         return this;
@@ -910,7 +906,7 @@ var Ramis = {};
      * @returns {TableSource} This source clause for cascading or chaining
      *          additional clauses.
      */
-    TableSource.prototype.indexedBy = function(indexName) {
+    TableSource.prototype.indexedBy = function (indexName) {
         this.nodes.push(" INDEXED BY ");
         this.nodes.push(indexName);
 
@@ -923,7 +919,7 @@ var Ramis = {};
      * @returns {TableSource} This source clause for cascading or chaining
      *          additional clauses.
      */
-    TableSource.prototype.notIndexed = function() {
+    TableSource.prototype.notIndexed = function () {
         this.nodes.push("NOT INDEXED");
 
         return this;
@@ -1003,7 +999,7 @@ var Ramis = {};
         this.nodes.push("(");
 
         var count = columnNames.length - 1,
-        i;
+            i;
 
         for (i = 0; i < count; i += 1) {
             this.nodes.push(columnNames[i]);
@@ -1084,7 +1080,7 @@ var Ramis = {};
      *            expr - A new {On} clause is created and added to this clause.
      * @returns {Join} This clause for cascading or chaining additional clauses.
      */
-    Join.prototype.on = function(expr) {
+    Join.prototype.on = function (expr) {
         if (expr instanceof Expr) {
             this.nodes.push(new On(expr));
         } else {
@@ -1102,7 +1098,7 @@ var Ramis = {};
      *            created and added to this clause.
      * @returns {Join} This clause for cascading or chaining additional clauses.
      */
-    Join.prototype.using = function(columnNames) {
+    Join.prototype.using = function (columnNames) {
         if (columnNames instanceof Array) {
             this.nodes.push(new Using(columnNames));
         } else {
@@ -1239,8 +1235,8 @@ var Ramis = {};
      */
     function getValueTree(value) {
         var keys,
-        key,
-        tree = [];
+            key,
+            tree = [];
 
         if (value instanceof Param) {
             tree.push(value);
@@ -1249,8 +1245,7 @@ var Ramis = {};
         } else if (value instanceof Object) {
             keys = Object.keys(value);
             key = keys[0];
-
-            tree.push(new Param(value[key], key));	
+            tree.push(new Param(value[key], key));
         } else {
             throw new TypeError("The 'value' argument is not valid");
         }
@@ -1274,7 +1269,7 @@ var Ramis = {};
         this.nodes.push(" VALUES (");
 
         var count = values.length - 1,
-        i;
+            i;
 
         for (i = 0; i < count; i += 1) {
             this.nodes = this.nodes.concat(getValueTree(values[i]));
@@ -1303,7 +1298,7 @@ var Ramis = {};
         this.nodes.push("(");
 
         var stopCount = names.length - 1,
-        i;
+            i;
 
         for (i = 0; i < stopCount; i += 1) {
             this.nodes.push(names[i]);
@@ -1335,8 +1330,8 @@ var Ramis = {};
      */
     function set(column) {
         var keys,
-        key,
-        tree = [];
+            key,
+            tree = [];
 
         keys = Object.keys(column);
         key = keys[0];
@@ -1363,7 +1358,7 @@ var Ramis = {};
         this.nodes.push("SET ");
 
         var count = columns.length - 1,
-        i;
+            i;
 
         for (i = 0; i < count; i += 1) {
             this.nodes = this.nodes.concat(set(columns[i]));
@@ -1397,9 +1392,9 @@ var Ramis = {};
      */
     function getResultColumn(columnName) {
         var name,
-        alias,
-        keys,
-        key;
+            alias,
+            keys,
+            key;
 
         if (typeof columnName === "string") {
             name = columnName;
@@ -1427,7 +1422,7 @@ var Ramis = {};
         this.nodes = [];
 
         var count,
-        i;
+            i;
 
         if (columnNames) {
             count = columnNames.length - 1;
@@ -1439,7 +1434,7 @@ var Ramis = {};
 
             this.nodes.push(getResultColumn(columnNames[i]));
         } else {
-            this.nodes.push("*");	
+            this.nodes.push("*");
         }
     }
 
@@ -1500,7 +1495,7 @@ var Ramis = {};
      * @returns {Insert} This clause for cascading or chaining additional
      *          clauses.
      */
-    Insert.prototype.columns = function(names, values) {
+    Insert.prototype.columns = function (names, values) {
         this.nodes.push(new Columns(names, values));
 
         return this;
@@ -1516,7 +1511,7 @@ var Ramis = {};
      *            the named parameter.
      * @returns {Insert} This Ramis 'INSERT' clause.
      */
-    Insert.prototype.values = function(values) {
+    Insert.prototype.values = function (values) {
         if (this.previous() instanceof Columns) {
             this.nodes.push(new Values(values));
         } else {
@@ -1552,7 +1547,7 @@ var Ramis = {};
      *            and the values as the values to update.
      * @returns {Update} The 'UPDATE' clause.
      */
-    Update.prototype.set = function(columns) {
+    Update.prototype.set = function (columns) {
         this.nodes.push(new Set(columns));
 
         return this;
@@ -1565,7 +1560,7 @@ var Ramis = {};
      *            expr
      * @returns {Update} The 'UPDATE' clause.
      */
-    Update.prototype.where = function(expr) {
+    Update.prototype.where = function (expr) {
         if (this.previous() instanceof Set) {
             this.nodes.push(new Where(expr));
         } else {
@@ -1599,9 +1594,9 @@ var Ramis = {};
      * @returns {Delete} This clause for cascading or chaining additional
      *          clauses.
      */
-    Delete.prototype.where = function(expr) {
+    Delete.prototype.where = function (expr) {
         if (expr instanceof Expr) {
-            this.nodes.push(new Where(expr));	
+            this.nodes.push(new Where(expr));
         } else {
             throw new TypeError("The 'expr' argument is not valid");
         }
@@ -1638,7 +1633,7 @@ var Ramis = {};
 
         if (from !== undefined) {
             if (from instanceof From) {
-                this.nodes.push(from);	
+                this.nodes.push(from);
             } else {
                 throw new TypeError("The 'from' argument is not valid");
             }
@@ -1664,9 +1659,9 @@ var Ramis = {};
      * @returns {Select} This clause for cascading or chaining additional
      *          clauses.
      */
-    Select.prototype.from = function(source) {
+    Select.prototype.from = function (source) {
         if (this.previous() instanceof ResultColumns) {
-            this.nodes.push(new From(source));	
+            this.nodes.push(new From(source));
         } else {
             throw new SyntaxError("The 'From' clause should only come after the 'ResultColumns' clause");
         }
@@ -1685,7 +1680,7 @@ var Ramis = {};
      * @returns {Select} This clause for cascading or chaining additional
      *          clauses.
      */
-    Select.prototype.join = function(source, constraint) {
+    Select.prototype.join = function (source, constraint) {
         if (this.previous() instanceof From) {
             this.nodes.push(new Join(source, constraint));
         } else {
@@ -1706,7 +1701,7 @@ var Ramis = {};
      * @returns {Select} This clause for cascading or chaining additional
      *          clauses.
      */
-    Select.prototype.leftJoin = function(source, constraint) {
+    Select.prototype.leftJoin = function (source, constraint) {
         if (this.previous() instanceof From) {
             this.nodes.push(new LeftJoin(source, constraint));
         } else {
@@ -1727,7 +1722,7 @@ var Ramis = {};
      * @returns {Select} This clause for cascading or chaining additional
      *          clauses.
      */
-    Select.prototype.leftOuterJoin = function(source, constraint) {
+    Select.prototype.leftOuterJoin = function (source, constraint) {
         if (this.previous() instanceof From) {
             this.nodes.push(new LeftOuterJoin(source, constraint));
         } else {
@@ -1748,7 +1743,7 @@ var Ramis = {};
      * @returns {Select} This clause for cascading or chaining additional
      *          clauses.
      */
-    Select.prototype.innerJoin = function(source, constraint) {
+    Select.prototype.innerJoin = function (source, constraint) {
         if (this.previous() instanceof From) {
             this.nodes.push(new InnerJoin(source, constraint));
         } else {
@@ -1769,7 +1764,7 @@ var Ramis = {};
      * @returns {Select} This clause for cascading or chaining additional
      *          clauses.
      */
-    Select.prototype.crossJoin = function(source, constraint) {
+    Select.prototype.crossJoin = function (source, constraint) {
         if (this.previous() instanceof From) {
             this.nodes.push(new CrossJoin(source, constraint));
         } else {
@@ -1787,7 +1782,7 @@ var Ramis = {};
      * @returns {Select} This clause for cascading or chaining additional
      *          clauses.
      */
-    Select.prototype.on = function(expr) {
+    Select.prototype.on = function (expr) {
         if (this.previous() instanceof Join) {
             this.nodes.push(new On(expr));
         } else {
@@ -1805,7 +1800,7 @@ var Ramis = {};
      * @returns {Select} This clause for cascading or chaining additional
      *          clauses.
      */
-    Select.prototype.using = function(columnNames) {
+    Select.prototype.using = function (columnNames) {
         if (this.previous() instanceof Join) {
             this.nodes.push(new Using(columnNames));
         } else {
@@ -1823,7 +1818,7 @@ var Ramis = {};
      * @returns {Select} This clause for cascading or chaining additional
      *          clauses.
      */
-    Select.prototype.where = function(expr) {
+    Select.prototype.where = function (expr) {
         if (this.previous() instanceof From || this.pervious() instanceof Join || this.previous() || JoinConstraint) {
             this.nodes.push(new Where(expr));
         } else {
@@ -1867,7 +1862,7 @@ var Ramis = {};
      * @returns {SelectSource} This clause for cascading or chaining additional
      *          clauses.
      */
-    SelectSource.prototype.as = function(tableAlias) {
+    SelectSource.prototype.as = function (tableAlias) {
         this.nodes.push(new As(tableAlias));
 
         return this;
@@ -1880,7 +1875,7 @@ var Ramis = {};
      *            alias - An alias.
      * @returns {As} An 'AS alias' clause.
      */
-    Ramis.as = function(alias) {
+    Ramis.as = function (alias) {
         return new As(alias);
     };
 
@@ -1893,7 +1888,7 @@ var Ramis = {};
      *            columnNames
      * @returns {Columns}
      */
-    Ramis.columns = function(columnNames) {
+    Ramis.columns = function (columnNames) {
         return new Columns(columnNames);
     };
 
@@ -1909,7 +1904,7 @@ var Ramis = {};
      *            [constraint] - The join constraint.
      * @returns {CrossJoin} A new 'CROSS JOIN single-source' clause.
      */
-    Ramis.crossJoin = function(source, constraint) {
+    Ramis.crossJoin = function (source, constraint) {
         return new CrossJoin(source, constraint);
     };
 
@@ -1918,7 +1913,7 @@ var Ramis = {};
      * 
      * @returns {Expr} A new expression.
      */
-    Ramis.expr = function() {
+    Ramis.expr = function () {
         return new Expr();
     };
 
@@ -1929,7 +1924,7 @@ var Ramis = {};
      *            source
      * @returns {From} A new 'FROM join-source' clause.
      */
-    Ramis.from = function(source) {
+    Ramis.from = function (source) {
         return new From(source);
     };
 
@@ -1945,7 +1940,7 @@ var Ramis = {};
      *            [constraint] - The join constraint.
      * @returns {InnerJoin} A new 'INNER JOIN single-source' clause.
      */
-    Ramis.innerJoin = function(source, constraint) {
+    Ramis.innerJoin = function (source, constraint) {
         return new InnerJoin(source, constraint);
     };
 
@@ -1960,7 +1955,7 @@ var Ramis = {};
      *            values
      * @returns {Insert} A new 'INSERT INTO' clause.
      */
-    Ramis.insert = function(tableName, columns, values) {
+    Ramis.insert = function (tableName, columns, values) {
         return new Insert(tableName, columns, values);
     };
 
@@ -1976,7 +1971,7 @@ var Ramis = {};
      *            [constraint] - The join constraint.
      * @returns {Join} A new 'JOIN single-source' clause.
      */
-    Ramis.join = function(source, constraint) {
+    Ramis.join = function (source, constraint) {
         return new Join(source, constraint);
     };
 
@@ -1992,7 +1987,7 @@ var Ramis = {};
      *            [constraint] - The join constraint.
      * @returns {LeftJoin} A new 'LEFT JOIN single-source' clause.
      */
-    Ramis.leftJoin = function(source, constraint) {
+    Ramis.leftJoin = function (source, constraint) {
         return new LeftJoin(source, constraint);
     };
 
@@ -2008,7 +2003,7 @@ var Ramis = {};
      *            [constraint] - The join constraint.
      * @returns {LeftOuterJoin} A new 'LEFT OUTER JOIN single-source' clause.
      */
-    Ramis.leftOuterJoin = function(source, constraint) {
+    Ramis.leftOuterJoin = function (source, constraint) {
         return new LeftOuterJoin(source, constraint);
     };
 
@@ -2019,7 +2014,7 @@ var Ramis = {};
      *            expr
      * @returns {On} A new 'ON expr' clause.
      */
-    Ramis.on = function(expr) {
+    Ramis.on = function (expr) {
         return new On(expr);
     };
 
@@ -2030,7 +2025,7 @@ var Ramis = {};
      *            tableName - The table name.
      * @returns {Delete} A new 'DELETE' clause.
      */
-    Ramis.delete = function(tableName) {
+    Ramis.delete = function (tableName) {
         return new Delete(tableName);
     };
 
@@ -2043,7 +2038,7 @@ var Ramis = {};
      *            with the keys as the alias for column names.
      * @returns {Select} A new 'SELECT column1, column2, ... , columnN' clause.
      */
-    Ramis.select = function(resultColumns) {
+    Ramis.select = function (resultColumns) {
         return new Select(resultColumns);
     };
 
@@ -2055,7 +2050,7 @@ var Ramis = {};
      *            columns
      * @returns {Set}
      */
-    Ramis.set = function(columns) {
+    Ramis.set = function (columns) {
         return new Set(columns);
     };
 
@@ -2066,7 +2061,7 @@ var Ramis = {};
      *            tableName - The table name.
      * @returns {Update} A new 'UPDATE' clause.
      */
-    Ramis.update = function(tableName) {
+    Ramis.update = function (tableName) {
         return new Update(tableName);
     };
 
@@ -2079,7 +2074,7 @@ var Ramis = {};
      *            values
      * @returns {Values}
      */
-    Ramis.values = function(values) {
+    Ramis.values = function (values) {
         return new Values(values);
     };
 
@@ -2090,7 +2085,7 @@ var Ramis = {};
      *            expr
      * @returns {Where}
      */
-    Ramis.where = function(expr) {
+    Ramis.where = function (expr) {
         return new Where(expr);
     };
 }());
