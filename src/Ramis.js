@@ -162,7 +162,7 @@ var Ramis = {};
 	 * @constructor
 	 */
 	function Clause() {
-		this.tree = [];
+		this.nodes = [];
 	}
 	
 	/**
@@ -170,16 +170,16 @@ var Ramis = {};
 	 * 
 	 * @returns {Array} All nodes in order.
 	 */
-	Clause.prototype.nodes = function() {
+	Clause.prototype.tree = function() {
 		var tree = [],
 			i;
 		
-		for (i = 0; i < this.tree.length; i += 1) {
-			if (this.tree[i] instanceof Clause) {
-				tree = tree.concat(this.tree[i].nodes());
+		for (i = 0; i < this.nodes.length; i += 1) {
+			if (this.nodes[i] instanceof Clause) {
+				tree = tree.concat(this.nodes[i].tree());
 			}
 			else {
-				tree.push(this.tree[i]);
+				tree.push(this.nodes[i]);
 			}
 		}
 		
@@ -192,7 +192,7 @@ var Ramis = {};
 	 * @returns {Clause|String} The previous node.
 	 */
 	Clause.prototype.previous = function() {
-		return this.tree[this.tree.length - 1];
+		return this.nodes[this.nodes.length - 1];
 	};
 	
 	/**
@@ -201,7 +201,7 @@ var Ramis = {};
 	 * @returns {String}
 	 */
 	Clause.prototype.toString = function() {
-		var tree = this.nodes(),
+		var tree = this.tree(),
 			str = '',
 			i;
 		
@@ -218,7 +218,7 @@ var Ramis = {};
 	 * @constructor
 	 */
 	function Expr() {
-		this.tree = [];
+		this.nodes = [];
 	}
 	
 	Expr.prototype = new Clause();
@@ -257,17 +257,17 @@ var Ramis = {};
 	 */
 	Expr.prototype.literal = function(value) {
 		if (value === Ramis.LITERAL_VALUE.NULL) {
-			this.tree.push(Ramis.LITERAL_VALUE.NULL);
+			this.nodes.push(Ramis.LITERAL_VALUE.NULL);
 		} else if (value === Ramis.LITERAL_VALUE.CURRENT_TIME) {
-			this.tree.push(Ramis.LITERAL_VALUE.CURRENT_TIME);
+			this.nodes.push(Ramis.LITERAL_VALUE.CURRENT_TIME);
 		}
 		else if (value === Ramis.LITERAL_VALUE.CURRENT_DATE) {
-			this.tree.push(Ramis.LITERAL_VALUE.CURRENT_DATE);
+			this.nodes.push(Ramis.LITERAL_VALUE.CURRENT_DATE);
 		}
 		else if (value === Ramis.LITERAL_VALUE.CURRENT_TIMESTAMP) {
-			this.tree.push(Ramis.LITERAL_VALUE.CURRENT_TIMESTAMP);
+			this.nodes.push(Ramis.LITERAL_VALUE.CURRENT_TIMESTAMP);
 		} else {
-			this.tree.push(new Param(value));	
+			this.nodes.push(new Param(value));	
 		}
 		
 		return this;
@@ -280,7 +280,7 @@ var Ramis = {};
 	 * @returns {Expr} This Ramis expression clause.
 	 */
 	Expr.prototype.column = function(columnName) {
-		this.tree.push(columnName);
+		this.nodes.push(columnName);
 		
 		return this;
 	};
@@ -293,7 +293,7 @@ var Ramis = {};
 	 * @returns {Expr} This Ramis expression clause.
 	 */
 	Expr.prototype.begin = function() {
-		this.tree.push("(");
+		this.nodes.push("(");
 		
 		return this;
 	};
@@ -306,7 +306,7 @@ var Ramis = {};
 	 * @returns {Expr} This Ramis expression clause.
 	 */
 	Expr.prototype.end = function() {
-		this.tree.push(")");
+		this.nodes.push(")");
 		
 		return this;
 	};
@@ -318,7 +318,7 @@ var Ramis = {};
 	 * @returns {Expr} This Ramis expression clause.
 	 */
 	Expr.prototype.not = function(operand) {
-		this.tree = this.tree.concat(binaryOperator(Ramis.OPERATORS.NOT, operand));
+		this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.NOT, operand));
 		
 		return this;
 	};
@@ -330,7 +330,7 @@ var Ramis = {};
 	 * @returns {Expr} This Ramis expression clause.
 	 */
 	Expr.prototype.concat = function(rightOperand) {
-		this.tree = this.tree.concat(binaryOperator(Ramis.OPERATORS.CONCAT, rightOperand));
+		this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.CONCAT, rightOperand));
 		
 		return this;
 	};
@@ -342,7 +342,7 @@ var Ramis = {};
 	 * @returns {Expr} This Ramis expression clause.
 	 */
 	Expr.prototype.multiply = function(rightOperand) {
-		this.tree = this.tree.concat(binaryOperator(Ramis.OPERATORS.MULTIPLY, rightOperand));
+		this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.MULTIPLY, rightOperand));
 		
 		return this;
 	};
@@ -354,7 +354,7 @@ var Ramis = {};
 	 * @returns {Expr} This Ramis expression clause.
 	 */
 	Expr.prototype.times = function(rightOperand) {
-		this.tree = this.tree.concat(binaryOperator(Ramis.OPERATORS.MULTIPLY, rightOperand));
+		this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.MULTIPLY, rightOperand));
 		
 		return this;
 	};
@@ -366,7 +366,7 @@ var Ramis = {};
 	 * @returns {Expr} This Ramis expression clause.
 	 */
 	Expr.prototype.divide = function(rightOperand) {
-		this.tree = this.tree.concat(binaryOperator(Ramis.OPERATORS.DIVIDE, rightOperand));
+		this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.DIVIDE, rightOperand));
 		
 		return this;
 	};
@@ -378,7 +378,7 @@ var Ramis = {};
 	 * @returns {Expr} This Ramis expression clause.
 	 */
 	Expr.prototype.dividedBy = function(rightOperand) {
-		this.tree = this.tree.concat(binaryOperator(Ramis.OPERATORS.DIVIDE, rightOperand));
+		this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.DIVIDE, rightOperand));
 		
 		return this;
 	};
@@ -390,7 +390,7 @@ var Ramis = {};
 	 * @returns {Expr} This Ramis expression clause.
 	 */
 	Expr.prototype.modulo = function(rightOperand) {
-		this.tree = this.tree.concat(binaryOperator(Ramis.OPERATORS.MODULO, rightOperand));
+		this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.MODULO, rightOperand));
 		
 		return this;
 	};
@@ -402,7 +402,7 @@ var Ramis = {};
 	 * @returns {Expr} This Ramis expression clause.
 	 */
 	Expr.prototype.remainder = function(rightOperand) {
-		this.tree = this.tree.concat(binaryOperator(Ramis.OPERATORS.MODULO, rightOperand));
+		this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.MODULO, rightOperand));
 		
 		return this;
 	};
@@ -414,7 +414,7 @@ var Ramis = {};
 	 * @returns {Expr} This Ramis expression clause.
 	 */
 	Expr.prototype.add = function(rightOperand) {
-		this.tree = this.tree.concat(binaryOperator(Ramis.OPERATORS.ADD, rightOperand));
+		this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.ADD, rightOperand));
 		
 		return this;
 	};
@@ -426,7 +426,7 @@ var Ramis = {};
 	 * @returns {Expr} This Ramis expression clause.
 	 */
 	Expr.prototype.subtract = function(rightOperand) {
-		this.tree = this.tree.concat(binaryOperator(Ramis.OPERATORS.SUBTRACT, rightOperand));
+		this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.SUBTRACT, rightOperand));
 		
 		return this;
 	};
@@ -438,7 +438,7 @@ var Ramis = {};
 	 * @returns {Expr} This Ramis expression clause.
 	 */
 	Expr.prototype.lessThan = function(rightOperand) {
-		this.tree = this.tree.concat(binaryOperator(Ramis.OPERATORS.MULTIPLY, rightOperand));
+		this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.MULTIPLY, rightOperand));
 		
 		return this;
 	};
@@ -450,7 +450,7 @@ var Ramis = {};
 	 * @returns {Expr} This Ramis expression clause.
 	 */
 	Expr.prototype.lessThanEquals = function(rightOperand) {
-		this.tree = this.tree.concat(binaryOperator(Ramis.OPERATORS.LESS_THAN_EQUALS, rightOperand));
+		this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.LESS_THAN_EQUALS, rightOperand));
 		
 		return this;
 	};
@@ -462,7 +462,7 @@ var Ramis = {};
 	 * @returns {Expr} This Ramis expression clause.
 	 */
 	Expr.prototype.greaterThan = function(rightOperand) {
-		this.tree = this.tree.concat(binaryOperator(Ramis.OPERATORS.GREATER_THAN, rightOperand));
+		this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.GREATER_THAN, rightOperand));
 		
 		return this;
 	};
@@ -474,7 +474,7 @@ var Ramis = {};
 	 * @returns {Expr} This Ramis expression clause.
 	 */
 	Expr.prototype.greaterThanEquals = function(rightOperand) {
-		this.tree = this.tree.concat(binaryOperator(Ramis.OPERATORS.GREATER_THAN_EQUALS, rightOperand));
+		this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.GREATER_THAN_EQUALS, rightOperand));
 		
 		return this;
 	};
@@ -486,7 +486,7 @@ var Ramis = {};
 	 * @returns {Expr} This Ramis expression clause.
 	 */
 	Expr.prototype.equals = function(rightOperand) {
-		this.tree = this.tree.concat(binaryOperator(Ramis.OPERATORS.EQUALS, rightOperand));
+		this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.EQUALS, rightOperand));
 		
 		return this;
 	};
@@ -498,7 +498,7 @@ var Ramis = {};
 	 * @returns {Expr} This Ramis expression clause.
 	 */
 	Expr.prototype.notEquals = function(rightOperand) {
-		this.tree = this.tree.concat(binaryOperator(Ramis.OPERATORS.NOT_EQUALS, rightOperand));
+		this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.NOT_EQUALS, rightOperand));
 		
 		return this;
 	};
@@ -510,7 +510,7 @@ var Ramis = {};
 	 * @returns {Expr} This Ramis expression clause.
 	 */
 	Expr.prototype.and = function(rightOperand) {
-		this.tree = this.tree.concat(binaryOperator(Ramis.OPERATORS.AND, rightOperand));
+		this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.AND, rightOperand));
 		
 		return this;
 	};
@@ -522,7 +522,7 @@ var Ramis = {};
 	 * @returns {Expr} This Ramis expression clause.
 	 */
 	Expr.prototype.or = function(rightOperand) {
-		this.tree = this.tree.concat(binaryOperator(Ramis.OPERATORS.OR, rightOperand));
+		this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.OR, rightOperand));
 		
 		return this;
 	};
@@ -534,7 +534,7 @@ var Ramis = {};
 	 * @returns {Expr} This Ramis expression clause.
 	 */
 	Expr.prototype.like = function(rightOperand) {
-		this.tree = this.tree.concat(binaryOperator(Ramis.OPERATORS.LIKE, rightOperand));
+		this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.LIKE, rightOperand));
 		
 		return this;
 	};
@@ -546,7 +546,7 @@ var Ramis = {};
 	 * @returns {Expr} This Ramis expression clause.
 	 */
 	Expr.prototype.glob = function(rightOperand) {
-		this.tree = this.tree.concat(binaryOperator(Ramis.OPERATORS.GLOB, rightOperand));
+		this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.GLOB, rightOperand));
 		
 		return this;
 	};
@@ -558,7 +558,7 @@ var Ramis = {};
 	 * @returns {Expr} This Ramis expression clause.
 	 */
 	Expr.prototype.regexp = function(rightOperand) {
-		this.tree = this.tree.concat(binaryOperator(Ramis.OPERATORS.REGEXP, rightOperand));
+		this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.REGEXP, rightOperand));
 		
 		return this;
 	};
@@ -570,7 +570,7 @@ var Ramis = {};
 	 * @returns {Expr} This Ramis expression clause.
 	 */
 	Expr.prototype.match = function(rightOperand) {
-		this.tree = this.tree.concat(binaryOperator(Ramis.OPERATORS.MATCH, rightOperand));
+		this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.MATCH, rightOperand));
 		
 		return this;
 	};
@@ -582,7 +582,7 @@ var Ramis = {};
 	 * @returns {Expr} This Ramis expression clause.
 	 */
 	Expr.prototype.is = function(rightOperand) {
-		this.tree = this.tree.concat(binaryOperator(Ramis.OPERATORS.IS, rightOperand));
+		this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.IS, rightOperand));
 		
 		return this;
 	};
@@ -594,7 +594,7 @@ var Ramis = {};
 	 * @returns {Expr} This Ramis expression clause.
 	 */
 	Expr.prototype.isNot = function(rightOperand) {
-		this.tree = this.tree.concat(binaryOperator(Ramis.OPERATORS.IS_NOT, rightOperand));
+		this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.IS_NOT, rightOperand));
 		
 		return this;
 	};
@@ -606,7 +606,7 @@ var Ramis = {};
 	 * @returns {Expr} This Ramis expression clause.
 	 */
 	Expr.prototype.in = function(rightOperand) {
-		this.tree = this.tree.concat(binaryOperator(Ramis.OPERATORS.IN, rightOperand));
+		this.nodes = this.nodes.concat(binaryOperator(Ramis.OPERATORS.IN, rightOperand));
 		
 		return this;
 	};
@@ -619,11 +619,11 @@ var Ramis = {};
 	 * @returns {Expr} This Ramis expression clause.
 	 */
 	Expr.prototype.cast = function(expr, toType) {
-		this.tree.push(" CAST ");
+		this.nodes.push(" CAST ");
 		this.begin();
-		this.tree.push(expr);
-		this.tree.push(" AS ");
-		this.tree.push(toType.dbType);
+		this.nodes.push(expr);
+		this.nodes.push(" AS ");
+		this.nodes.push(toType.dbType);
 		this.end();
 		
 		return this;
@@ -637,8 +637,8 @@ var Ramis = {};
 	 * @returns {Expr} This Ramis expression clause.
 	 */
 	Expr.prototype.collate = function(expr, collation) {
-		this.tree.push(expr);
-		this.tree.push(collation);
+		this.nodes.push(expr);
+		this.nodes.push(collation);
 		
 		return this;
 	};
@@ -649,7 +649,7 @@ var Ramis = {};
 	 * @returns {Expr} This Ramis expression clause.
 	 */
 	Expr.prototype.isNull = function() {
-		this.tree.push(" ISNULL");
+		this.nodes.push(" ISNULL");
 		
 		return this;
 	};
@@ -660,7 +660,7 @@ var Ramis = {};
 	 * @returns {Expr} This Ramis expression clause.
 	 */
 	Expr.prototype.notNull = function() {
-		this.tree.push(" NOTNULL");
+		this.nodes.push(" NOTNULL");
 		
 		return this;
 	};
@@ -672,8 +672,8 @@ var Ramis = {};
 	 * @returns {Expr} This Ramis expression clause.
 	 */
 	Expr.prototype.escape = function(expr) {
-		this.tree.push(" ESCAPE ");
-		this.tree.push(expr);
+		this.nodes.push(" ESCAPE ");
+		this.nodes.push(expr);
 		
 		return this;
 	};
@@ -686,10 +686,10 @@ var Ramis = {};
 	 * @returns {Expr} This Ramis expression clause.
 	 */
 	Expr.prototype.between = function(leftOperand, rightOperand) {
-		this.tree.push(" BETWEEN ");
-		this.tree.push(leftOperand);
-		this.tree.push(" AND ");
-		this.tree.push(rightOperand);
+		this.nodes.push(" BETWEEN ");
+		this.nodes.push(leftOperand);
+		this.nodes.push(" AND ");
+		this.nodes.push(rightOperand);
 		
 		return this;
 	};
@@ -701,9 +701,9 @@ var Ramis = {};
 	 * @returns {Expr} This Ramis expression clause.
 	 */
 	Expr.prototype.exists = function(select) {
-		this.tree.push(" EXISTS ");
+		this.nodes.push(" EXISTS ");
 		this.begin();
-		this.tree.push(select);
+		this.nodes.push(select);
 		this.end();
 		
 		return this;
@@ -719,15 +719,15 @@ var Ramis = {};
 	 * @returns {Expr} This Ramis expression clause.
 	 */
 	Expr.prototype.case = function(expr, whenExpr, thenExpr, elseExpr) {
-		this.tree.push(" CASE ");
-		this.tree.push(expr);
-		this.tree.push(" WHEN ");
-		this.tree.push(whenExpr);
-		this.tree.push(" THEN ");
-		this.tree.push(thenExpr);
-		this.tree.push(" ELSE ");
-		this.tree.push(elseExpr);
-		this.tree.push(" END");
+		this.nodes.push(" CASE ");
+		this.nodes.push(expr);
+		this.nodes.push(" WHEN ");
+		this.nodes.push(whenExpr);
+		this.nodes.push(" THEN ");
+		this.nodes.push(thenExpr);
+		this.nodes.push(" ELSE ");
+		this.nodes.push(elseExpr);
+		this.nodes.push(" END");
 		
 		return this;
 	}; 
@@ -740,13 +740,13 @@ var Ramis = {};
 	 * @returns {Expr} This Ramis expression clause.
 	 */
 	Expr.prototype.raise = function(func, errorMessage) {
-		this.tree.push(" RAISE ");
+		this.nodes.push(" RAISE ");
 		this.begin();
-		this.tree.push(func);
+		this.nodes.push(func);
 		
 		if (func !== Ramis.RAISE_FUNCTIONS.IGNORE) {
-			this.tree.push(", ");
-			this.tree.push(errorMessage);
+			this.nodes.push(", ");
+			this.nodes.push(errorMessage);
 		}
 		
 		this.end();
@@ -761,7 +761,7 @@ var Ramis = {};
 	 * @returns {Expr} This Ramis expression clause.
 	 */
 	Expr.prototype.expr = function(expr) {
-		this.tree.push(expr);
+		this.nodes.push(expr);
 		
 		return this;
 	};
@@ -777,9 +777,9 @@ var Ramis = {};
 	 * @param {String} alias - The alias for the previous value in the clause tree.
 	 */
 	function As(alias) {
-		this.tree = [];
-		this.tree.push(" AS ");
-		this.tree.push(alias);
+		this.nodes = [];
+		this.nodes.push(" AS ");
+		this.nodes.push(alias);
 	}
 	
 	As.prototype = new Clause();
@@ -792,13 +792,13 @@ var Ramis = {};
 	 * @param {Source} [source] - A join source.
 	 */
 	function Source(source) {
-		this.tree = [];
+		this.nodes = [];
 		
 		if (source !== undefined) {
 			if (source instanceof Source) {
-				this.tree.push("(");
-				this.tree.push(source);
-				this.tree.push(")");
+				this.nodes.push("(");
+				this.nodes.push(source);
+				this.nodes.push(")");
 			} else {
 				throw new TypeError("The 'source' argument is not valid");
 			}
@@ -808,7 +808,7 @@ var Ramis = {};
 	Source.prototype = new Clause();
 	
 	function SingleSource() {
-		this.tree = [];
+		this.nodes = [];
 	}
 	
 	SingleSource.prototype = new Clause();
@@ -822,14 +822,14 @@ var Ramis = {};
 	 * @param {String} [databaseName] - The database name.
 	 */
 	function TableSource(tableName, databaseName) {
-		this.tree = [];
+		this.nodes = [];
 		
 		if (databaseName !== undefined && databaseName) {
-			this.tree.push(databaseName);
-			this.tree.push(".");
+			this.nodes.push(databaseName);
+			this.nodes.push(".");
 		}
 		
-		this.tree.push(tableName);
+		this.nodes.push(tableName);
 	}
 	
 	TableSource.prototype = new SingleSource();
@@ -841,7 +841,7 @@ var Ramis = {};
 	 * @returns {TableSource} This source clause for cascading or chaining additional clauses.
 	 */
 	TableSource.prototype.as = function(tableAlias) {
-		this.tree.push(new As(tableAlias));
+		this.nodes.push(new As(tableAlias));
 		
 		return this;
 	};
@@ -853,8 +853,8 @@ var Ramis = {};
 	 * @returns {TableSource} This source clause for cascading or chaining additional clauses.
 	 */
 	TableSource.prototype.indexedBy = function(indexName) {
-		this.tree.push(" INDEXED BY ");
-		this.tree.push(indexName);
+		this.nodes.push(" INDEXED BY ");
+		this.nodes.push(indexName);
 		
 		return this;
 	};
@@ -865,7 +865,7 @@ var Ramis = {};
 	 * @returns {TableSource} This source clause for cascading or chaining additional clauses.
 	 */
 	TableSource.prototype.notIndexed = function() {
-		this.tree.push("NOT INDEXED");
+		this.nodes.push("NOT INDEXED");
 		
 		return this;
 	};
@@ -878,13 +878,13 @@ var Ramis = {};
 	 * @param {String|Source} source - If {String}, then the source is assumed to be a table name and a {TableSource} is created automatically and added to the clause tree.
 	 */
 	function From(source) {
-		this.tree = [];
-		this.tree.push(" FROM ");
+		this.nodes = [];
+		this.nodes.push(" FROM ");
 		
 		if (typeof source === 'string') {
-			this.tree.push(new TableSource(source));
+			this.nodes.push(new TableSource(source));
 		} else if (source instanceof Source) {
-			this.tree.push(source);
+			this.nodes.push(source);
 		} else {
 			throw new TypeError("The 'source' argument is not valid");
 		}
@@ -900,7 +900,7 @@ var Ramis = {};
 	 * @constructor
 	 */
 	function JoinConstraint() {
-		this.tree = [];
+		this.nodes = [];
 	}
 	
 	JoinConstraint.prototype = new Clause();
@@ -913,11 +913,11 @@ var Ramis = {};
 	 * @param {Expr} expr - A SQL expression clause.
 	 */
 	function On(expr) {
-		this.tree = [];
-		this.tree.push(" ON ");
+		this.nodes = [];
+		this.nodes.push(" ON ");
 		
 		if (expr instanceof Expr) {
-			this.tree.push(expr);
+			this.nodes.push(expr);
 		} else {
 			throw new TypeError("The 'expr' argument is not valid");
 		}
@@ -933,20 +933,20 @@ var Ramis = {};
 	 * @param {Array} columnNames - Elements are {String} objects.
 	 */
 	function Using(columnNames) {
-		this.tree = [];
-		this.tree.push(" USING ");
-		this.tree.push("(");
+		this.nodes = [];
+		this.nodes.push(" USING ");
+		this.nodes.push("(");
 		
 		var count = columnNames.length - 1,
 			i;
 		
 		for (i = 0; i < count; i += 1) {
-			this.tree.push(columnNames[i]);
-			this.tree.push(", ");
+			this.nodes.push(columnNames[i]);
+			this.nodes.push(", ");
 		}
 		
-		this.tree.push(columnNames[i]);
-		this.tree.push(")");
+		this.nodes.push(columnNames[i]);
+		this.nodes.push(")");
 	}
 	
 	Using.prototype = new JoinConstraint();
@@ -996,12 +996,12 @@ var Ramis = {};
 	 * @param {On|Using} [constraint] - The join constraint.
 	 */
 	function Join(source, constraint) {
-		this.tree = [];
-		this.tree.push(" JOIN ");
-		this.tree.push(addSource(source));
+		this.nodes = [];
+		this.nodes.push(" JOIN ");
+		this.nodes.push(addSource(source));
 				
 		if (constraint !== undefined) {
-			this.tree.push(addConstraint(constraint));
+			this.nodes.push(addConstraint(constraint));
 		}
 	}
 	
@@ -1015,7 +1015,7 @@ var Ramis = {};
 	 */
 	Join.prototype.on = function(expr) {
 		if (expr instanceof Expr) {
-			this.tree.push(new On(expr));
+			this.nodes.push(new On(expr));
 		} else {
 			throw new TypeError("The 'expr' argument is not valid");
 		}
@@ -1031,7 +1031,7 @@ var Ramis = {};
 	 */
 	Join.prototype.using = function(columnNames) {
 		if (columnNames instanceof Array) {
-			this.tree.push(new Using(columnNames));
+			this.nodes.push(new Using(columnNames));
 		} else {
 			throw new TypeError("The 'columnNames' argument is not valid");
 		}
@@ -1048,12 +1048,12 @@ var Ramis = {};
 	 * @param {On|Using} [constraint] - The join constraint.
 	 */
 	function LeftJoin(source, constraint) {
-		this.tree = [];
-		this.tree.push(" LEFT JOIN ");
-		this.tree.push(addSource(source));
+		this.nodes = [];
+		this.nodes.push(" LEFT JOIN ");
+		this.nodes.push(addSource(source));
 		
 		if (constraint !== undefined) {
-			this.tree.push(addConstraint(constraint));
+			this.nodes.push(addConstraint(constraint));
 		}
 	}
 	
@@ -1068,12 +1068,12 @@ var Ramis = {};
 	 * @param {On|Using} [constraint] - The join constraint.
 	 */
 	function LeftOuterJoin(source, constraint) {
-		this.tree = [];
-		this.tree.push(" LEFT OUTER JOIN ");
-		this.tree.push(addSource(source));
+		this.nodes = [];
+		this.nodes.push(" LEFT OUTER JOIN ");
+		this.nodes.push(addSource(source));
 		
 		if (constraint !== undefined) {
-			this.tree.push(addConstraint(constraint));
+			this.nodes.push(addConstraint(constraint));
 		}
 	}
 	
@@ -1088,12 +1088,12 @@ var Ramis = {};
 	 * @param {On|Using} [constraint] - The join constraint.
 	 */
 	function InnerJoin(source, constraint) {
-		this.tree = [];
-		this.tree.push(" INNER JOIN ");
-		this.tree.push(addSource(source));
+		this.nodes = [];
+		this.nodes.push(" INNER JOIN ");
+		this.nodes.push(addSource(source));
 		
 		if (constraint !== undefined) {
-			this.tree.push(addConstraint(constraint));
+			this.nodes.push(addConstraint(constraint));
 		}
 	}
 	
@@ -1108,12 +1108,12 @@ var Ramis = {};
 	 * @param {On|Using} [constraint] - The join constraint.
 	 */
 	function CrossJoin(source, constraint) {
-		this.tree = [];
-		this.tree.push(" CROSS JOIN ");
-		this.tree.push(addSource(source));
+		this.nodes = [];
+		this.nodes.push(" CROSS JOIN ");
+		this.nodes.push(addSource(source));
 		
 		if (constraint !== undefined) {
-			this.tree.push(addConstraint(constraint));
+			this.nodes.push(addConstraint(constraint));
 		}
 	}
 	
@@ -1127,9 +1127,9 @@ var Ramis = {};
 	 * @param {Expr} expr
 	 */
 	function Where(expr) {
-		this.tree = [];
-		this.tree.push(" WHERE ");
-		this.tree.push(expr);
+		this.nodes = [];
+		this.nodes.push(" WHERE ");
+		this.nodes.push(expr);
 	}
 	
 	Where.prototype = new Clause();
@@ -1170,19 +1170,19 @@ var Ramis = {};
 	 * @param {Array} values - Elements are either {String} or {Object}. If {Object}, the property key is used as a named parameter for the value. If {String}, a placeholder indexed parameter is created for the value.
 	 */
 	function Values(values) {
-		this.tree = [];
-		this.tree.push(" VALUES (");
+		this.nodes = [];
+		this.nodes.push(" VALUES (");
 		
 		var count = values.length - 1,
 			i;
 		
 		for (i = 0; i < count; i += 1) {
-			this.tree = this.tree.concat(getValueTree(values[i]));
-			this.tree.push(", ");
+			this.nodes = this.nodes.concat(getValueTree(values[i]));
+			this.nodes.push(", ");
 		}
 		
-		this.tree = this.tree.concat(getValueTree(values[i]));
-		this.tree.push(")");
+		this.nodes = this.nodes.concat(getValueTree(values[i]));
+		this.nodes.push(")");
 	}
 	
 	Values.prototype = new Clause();
@@ -1196,25 +1196,25 @@ var Ramis = {};
 	 * @param {Values|Array} [values] - If {Array}, then a new {Values} clause is created and added.
 	 */
 	function Columns(names, values) {
-		this.tree = [];
-		this.tree.push("(");
+		this.nodes = [];
+		this.nodes.push("(");
 		
 		var stopCount = names.length - 1,
 			i;
 		
 		for (i = 0; i < stopCount; i += 1) {
-			this.tree.push(names[i]);
-			this.tree.push(", ");
+			this.nodes.push(names[i]);
+			this.nodes.push(", ");
 		}
 		
-		this.tree.push(names[i]);
-		this.tree.push(")");
+		this.nodes.push(names[i]);
+		this.nodes.push(")");
 		
 		if (values !== undefined) {
 			if (values instanceof Values) {
-				this.tree.push(values);
+				this.nodes.push(values);
 			} else if (values instanceof Array) {
-				this.tree.push(new Values(values));
+				this.nodes.push(new Values(values));
 			} else {
 				throw new TypeError("The 'values' argument is not valid");
 			}
@@ -1253,29 +1253,29 @@ var Ramis = {};
 	 * @param {Array} columns
 	 */
 	function Set(columns) {
-		this.tree = [];
-		this.tree.push("SET ");
+		this.nodes = [];
+		this.nodes.push("SET ");
 		
 		var count = columns.length - 1,
 			i;
 		
 		for (i = 0; i < count; i += 1) {
-			this.tree = this.tree.concat(set(columns[i]));
-			this.tree.push(", ");
+			this.nodes = this.nodes.concat(set(columns[i]));
+			this.nodes.push(", ");
 		}
 		
-		this.tree = this.tree.concat(set(columns[i]));
+		this.nodes = this.nodes.concat(set(columns[i]));
 
 	}
 	
 	Set.prototype = new Clause();
 	
 	function ResultColumn(name, alias) {
-		this.tree = [];
-		this.tree.push(name);
+		this.nodes = [];
+		this.nodes.push(name);
 		
 		if (alias) {
-			this.tree.push(new As(alias));
+			this.nodes.push(new As(alias));
 		}
 	}
 	
@@ -1311,7 +1311,7 @@ var Ramis = {};
 	 * @param {Array} [columnNames] - Elements are either {String} or {Object}. If {String}, 'AS alias' clause is created and added. If {Object}, the property key is used as the alias and an 'AS alias' clause is created and added.
 	 */
 	function ResultColumns(columnNames) {
-		this.tree = [];
+		this.nodes = [];
 		
 		var count,
 			i;
@@ -1320,13 +1320,13 @@ var Ramis = {};
 			count = columnNames.length - 1;
 			
 			for (i = 0; i < count; i += 1) {
-				this.tree.push(getResultColumn(columnNames[i]));
-				this.tree.push(", ");
+				this.nodes.push(getResultColumn(columnNames[i]));
+				this.nodes.push(", ");
 			}
 			
-			this.tree.push(getResultColumn(columnNames[i]));
+			this.nodes.push(getResultColumn(columnNames[i]));
 		} else {
-			this.tree.push("*");	
+			this.nodes.push("*");	
 		}
 	}
 	
@@ -1342,16 +1342,16 @@ var Ramis = {};
 	 * @param {Values|Array} [values] - If {Array}, then a new {Values} clause is created and added.
 	 */
 	function Insert(tableName, columns, values) {
-		this.tree = [];
-		this.tree.push("INSERT INTO ");
-		this.tree.push(tableName);
-		this.tree.push(" ");
+		this.nodes = [];
+		this.nodes.push("INSERT INTO ");
+		this.nodes.push(tableName);
+		this.nodes.push(" ");
 		
 		if (columns !== undefined) {
 			if (columns instanceof Columns) {
-				this.tree.push(columns);
+				this.nodes.push(columns);
 			} else if (columns instanceof Array) {
-				this.tree.push(new Columns(columns));
+				this.nodes.push(new Columns(columns));
 			} else {
 				throw new TypeError("The 'columns' argument is not valid");
 			}
@@ -1359,9 +1359,9 @@ var Ramis = {};
 		
 		if (values !== undefined) {
 			if (values instanceof Values) {
-				this.tree.push(values);
+				this.nodes.push(values);
 			} else if (values instanceof Array) {
-				this.tree.push(new Values(values));
+				this.nodes.push(new Values(values));
 			} else {
 				throw new TypeError("The 'values' argument is not valid");
 			}
@@ -1378,7 +1378,7 @@ var Ramis = {};
 	 * @returns {Insert} This clause for cascading or chaining additional clauses.
 	 */
 	Insert.prototype.columns = function(names, values) {
-		this.tree.push(new Columns(names, values));
+		this.nodes.push(new Columns(names, values));
 		
 		return this;
 	};
@@ -1391,7 +1391,7 @@ var Ramis = {};
 	 */
 	Insert.prototype.values = function(values) {
 		if (this.previous() instanceof Columns) {
-			this.tree.push(new Values(values));
+			this.nodes.push(new Values(values));
 		} else {
 			throw new SyntaxError("A 'Values' clause should only come after a 'Columns' clause");
 		}
@@ -1407,10 +1407,10 @@ var Ramis = {};
 	 * @param {String} tableName - The name of a table to update.
 	 */
 	function Update(tableName) {
-		this.tree = [];
-		this.tree.push("UPDATE ");
-		this.tree.push(tableName);
-		this.tree.push(" ");
+		this.nodes = [];
+		this.nodes.push("UPDATE ");
+		this.nodes.push(tableName);
+		this.nodes.push(" ");
 	}
 	
 	Update.prototype = new Clause();
@@ -1422,7 +1422,7 @@ var Ramis = {};
 	 * @returns {Update} The 'UPDATE' clause.
 	 */
 	Update.prototype.set = function(columns) {
-		this.tree.push(new Set(columns));
+		this.nodes.push(new Set(columns));
 		
 		return this;
 	};
@@ -1435,7 +1435,7 @@ var Ramis = {};
 	 */
 	Update.prototype.where = function(expr) {
 		if (this.previous() instanceof Set) {
-			this.tree.push(new Where(expr));
+			this.nodes.push(new Where(expr));
 		} else {
 			throw new SyntaxError("The 'Where' clause should only come after a 'Set' clause");
 		}
@@ -1451,9 +1451,9 @@ var Ramis = {};
 	 * @param {String} tableName - A table name.
 	 */
 	function Delete(tableName) {
-		this.tree = [];
-		this.tree.push("DELETE FROM ");
-		this.tree.push(tableName);
+		this.nodes = [];
+		this.nodes.push("DELETE FROM ");
+		this.nodes.push(tableName);
 	}
 	
 	Delete.prototype = new Clause();
@@ -1466,7 +1466,7 @@ var Ramis = {};
 	 */
 	Delete.prototype.where = function(expr) {
 		if (expr instanceof Expr) {
-			this.tree.push(new Where(expr));	
+			this.nodes.push(new Where(expr));	
 		} else {
 			throw new TypeError("The 'expr' argument is not valid");
 		}
@@ -1484,14 +1484,14 @@ var Ramis = {};
 	 * @param {Where} [where] - A 'WHERE' clause.
 	 */
 	function Select(resultColumns, from, where) {
-		this.tree = [];
-		this.tree.push("SELECT ");
+		this.nodes = [];
+		this.nodes.push("SELECT ");
 		
 		if (resultColumns !== undefined) {
 			if (resultColumns instanceof Array) {
-				this.tree.push(new ResultColumns(resultColumns));
+				this.nodes.push(new ResultColumns(resultColumns));
 			} else if (resultColumns instanceof ResultColumns) {
-				this.tree.push(resultColumns);
+				this.nodes.push(resultColumns);
 			} else {
 				throw new TypeError("The 'resultColumns' argument is not valid");
 			}
@@ -1499,7 +1499,7 @@ var Ramis = {};
 		
 		if (from !== undefined) {
 			if (from instanceof From) {
-				this.tree.push(from);	
+				this.nodes.push(from);	
 			} else {
 				throw new TypeError("The 'from' argument is not valid");
 			}
@@ -1507,7 +1507,7 @@ var Ramis = {};
 		
 		if (where !== undefined) {
 			if (where instanceof Where) {
-				this.tree.push(where);
+				this.nodes.push(where);
 			} else {
 				throw new TypeError("The 'where' argument is not valid");
 			}
@@ -1524,7 +1524,7 @@ var Ramis = {};
 	 */
 	Select.prototype.from = function(source) {
 		if (this.previous() instanceof ResultColumns) {
-			this.tree.push(new From(source));	
+			this.nodes.push(new From(source));	
 		} else {
 			throw new SyntaxError("The 'From' clause should only come after the 'ResultColumns' clause");
 		}
@@ -1541,7 +1541,7 @@ var Ramis = {};
 	 */
 	Select.prototype.join = function(source, constraint) {
 		if (this.previous() instanceof From) {
-			this.tree.push(new Join(source, constraint));
+			this.nodes.push(new Join(source, constraint));
 		} else {
 			throw new SyntaxError("The 'Join' clause should only come after a 'From' clause");
 		}
@@ -1558,7 +1558,7 @@ var Ramis = {};
 	 */
 	Select.prototype.leftJoin = function(source, constraint) {
 		if (this.previous() instanceof From) {
-			this.tree.push(new LeftJoin(source, constraint));
+			this.nodes.push(new LeftJoin(source, constraint));
 		} else {
 			throw new SyntaxError("The 'Left Join' clause should only come after a 'From' clause");
 		}
@@ -1575,7 +1575,7 @@ var Ramis = {};
 	 */
 	Select.prototype.leftOuterJoin = function(source, constraint) {
 		if (this.previous() instanceof From) {
-			this.tree.push(new LeftOuterJoin(source, constraint));
+			this.nodes.push(new LeftOuterJoin(source, constraint));
 		} else {
 			throw new SyntaxError("The 'Left Outer Join' clause should only come after a 'From' clause");
 		}
@@ -1592,7 +1592,7 @@ var Ramis = {};
 	 */
 	Select.prototype.innerJoin = function(source, constraint) {
 		if (this.previous() instanceof From) {
-			this.tree.push(new InnerJoin(source, constraint));
+			this.nodes.push(new InnerJoin(source, constraint));
 		} else {
 			throw new SyntaxError("The 'Inner Join' clause should only come after a 'From' clause");
 		}
@@ -1609,7 +1609,7 @@ var Ramis = {};
 	 */
 	Select.prototype.crossJoin = function(source, constraint) {
 		if (this.previous() instanceof From) {
-			this.tree.push(new CrossJoin(source, constraint));
+			this.nodes.push(new CrossJoin(source, constraint));
 		} else {
 			throw new SyntaxError("The 'Cross Join' clause should only come after a 'From' clause");
 		}
@@ -1625,7 +1625,7 @@ var Ramis = {};
 	 */
 	Select.prototype.on = function(expr) {
 		if (this.previous() instanceof Join) {
-			this.tree.push(new On(expr));
+			this.nodes.push(new On(expr));
 		} else {
 			throw new SyntaxError("The 'On' clause should only come after a 'Join' clause");
 		}
@@ -1641,7 +1641,7 @@ var Ramis = {};
 	 */
 	Select.prototype.using = function(columnNames) {
 		if (this.previous() instanceof Join) {
-			this.tree.push(new Using(columnNames));
+			this.nodes.push(new Using(columnNames));
 		} else {
 			throw new SyntaxError("The 'Using' clause should only come after a 'Join' clause");
 		}
@@ -1657,7 +1657,7 @@ var Ramis = {};
 	 */
 	Select.prototype.where = function(expr) {
 		if (this.previous() instanceof From || this.pervious() instanceof Join || this.previous() || JoinConstraint) {
-			this.tree.push(new Where(expr));
+			this.nodes.push(new Where(expr));
 		} else {
 			throw new SyntaxError("The 'Where' clause should follow a 'From', 'Join', or 'JoinConstraint' clause");
 		}
@@ -1677,12 +1677,12 @@ var Ramis = {};
 	 * @param {Select} select - A select clause.
 	 */
 	function SelectSource(select) {
-		this.tree = [];
+		this.nodes = [];
 		
 		if (select instanceof Select) {
-			this.tree.push("(");
-			this.tree.push(select);
-			this.tree.push(")");
+			this.nodes.push("(");
+			this.nodes.push(select);
+			this.nodes.push(")");
 		} else {
 			throw new TypeError("The 'select' is not valid");
 		}
@@ -1697,7 +1697,7 @@ var Ramis = {};
 	 * @returns {SelectSource} This clause for cascading or chaining additional clauses.
 	 */
 	SelectSource.prototype.as = function(tableAlias) {
-		this.tree.push(new As(tableAlias));
+		this.nodes.push(new As(tableAlias));
 		
 		return this;
 	};
