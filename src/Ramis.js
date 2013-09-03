@@ -166,17 +166,17 @@ var Ramis = {};
 	}
 	
 	/**
-	 * Gets the full tree. The child clauses are added to this clause's tree.
+	 * Gets all of the nodes of the tree for this clause, including all child clauses.
 	 * 
-	 * @returns {Array} The full tree with child clauses.
+	 * @returns {Array} All nodes in order.
 	 */
-	Clause.prototype.tree = function() {
+	Clause.prototype.nodes = function() {
 		var tree = [],
 			i;
 		
 		for (i = 0; i < this.tree.length; i += 1) {
 			if (this.tree[i] instanceof Clause) {
-				tree = tree.concat(this.tree[i].tree());
+				tree = tree.concat(this.tree[i].nodes());
 			}
 			else {
 				tree.push(this.tree[i]);
@@ -201,7 +201,7 @@ var Ramis = {};
 	 * @returns {String}
 	 */
 	Clause.prototype.toString = function() {
-		var tree = this.tree(),
+		var tree = this.nodes(),
 			str = '',
 			i;
 		
@@ -964,7 +964,7 @@ var Ramis = {};
 		} else if (source instanceof SingleSource) {
 			joinSource = source;
 		} else {
-			throw new TypeError("The 'source' argument type of: '" + (typeof source) + "' is not recongized");
+//			throw new TypeError("The 'source' argument type of: '" + (typeof source) + "' is not recongized");
 		}
 		
 		return joinSource;
