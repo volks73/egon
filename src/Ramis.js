@@ -160,6 +160,92 @@ var Ramis = {};
     };
 
     /**
+     * A bindable and SQL executable statement.
+     * 
+     * @constructor
+     * 
+     * @param {String}
+     *            sql - The SQL string.
+     * @param {Object}
+     *            params - Each property of the object is a key/value pair where
+     *            the key is the bind parameter name and the value is the value
+     *            to substitute.
+     */
+    function Statement(sql, params) {
+        this.sql = sql;
+        this.params = params;
+    }
+
+    /**
+     * Gets the SQL string.
+     * 
+     * @returns {String}
+     */
+    Statement.prototype.toString = function () {
+        return this.sql;
+    };
+
+    /**
+     * Generates a named parameter key based on the current number of
+     * parameters.
+     * 
+     * A named parameter is created using the following pattern: 'paramA',
+     * 'paramB', 'paramC', ... 'paramAA', 'paramBB', ... 'paramAAA' and so on.
+     * 
+     * @param {Integer}
+     *            paramCount - The current number of parameters.
+     */
+    function generateParamKey(paramCount) {
+        var DEFAULT_PARAM = "param", 
+        charCode = 65 + (paramCount % 26), 
+        repeat = paramCount / 26, 
+        suffix, 
+        i;
+
+        suffix = String.fromCharCode(charCode);
+
+        for (i = 1; i < repeat; i += 1) {
+            suffix = String.fromCharCode(charCode);
+        }
+
+        return DEFAULT_PARAM + suffix;
+    }
+
+    /**
+     * Converts a clause into a parameter bindable and executable statment.
+     * 
+     * @param {Clause}
+     *            clause
+     * @returns {Statement}
+     */
+    Ramis.compile = function (clause) {
+        var sql = '', 
+        tree = clause.tree(), 
+        params = {}, 
+        paramCount = 0, 
+        node, 
+        i;
+
+        for (i = 0; i < tree.length; i += 1) {
+            node = tree[i];
+
+            if (node instanceof Param) {
+                if (!node.key) {
+                    node.key = generateParamKey(paramCount);
+                    paramCount += 1;
+                }
+
+                sql += ":" + node.key;
+                params[node.key] = node.value;
+            } else {
+                sql += node;
+            }
+        }
+
+        return new Statement(sql, params);
+    };
+
+    /**
      * Creates a new clause.
      * 
      * @constructor
@@ -176,7 +262,7 @@ var Ramis = {};
      */
     Clause.prototype.tree = function () {
         var tree = [],
-            i;
+        i;
 
         for (i = 0; i < this.nodes.length; i += 1) {
             if (this.nodes[i] instanceof Clause) {
@@ -205,8 +291,8 @@ var Ramis = {};
      */
     Clause.prototype.toString = function () {
         var tree = this.tree(),
-            str = '',
-            i;
+        str = '',
+        i;
 
         for (i = 0; i < tree.length; i += 1) {
             str += tree[i].toString();
@@ -999,7 +1085,7 @@ var Ramis = {};
         this.nodes.push("(");
 
         var count = columnNames.length - 1,
-            i;
+        i;
 
         for (i = 0; i < count; i += 1) {
             this.nodes.push(columnNames[i]);
@@ -1235,19 +1321,17 @@ var Ramis = {};
      */
     function getValueTree(value) {
         var keys,
-            key,
-            tree = [];
+        key,
+        tree = [];
 
         if (value instanceof Param) {
             tree.push(value);
         } else if (typeof value === "string") {
             tree.push(new Param(value));
-        } else if (value instanceof Object) {
+        } else {
             keys = Object.keys(value);
             key = keys[0];
             tree.push(new Param(value[key], key));
-        } else {
-            throw new TypeError("The 'value' argument is not valid");
         }
 
         return tree;
@@ -1269,7 +1353,7 @@ var Ramis = {};
         this.nodes.push(" VALUES (");
 
         var count = values.length - 1,
-            i;
+        i;
 
         for (i = 0; i < count; i += 1) {
             this.nodes = this.nodes.concat(getValueTree(values[i]));
@@ -1298,7 +1382,7 @@ var Ramis = {};
         this.nodes.push("(");
 
         var stopCount = names.length - 1,
-            i;
+        i;
 
         for (i = 0; i < stopCount; i += 1) {
             this.nodes.push(names[i]);
@@ -1330,8 +1414,8 @@ var Ramis = {};
      */
     function set(column) {
         var keys,
-            key,
-            tree = [];
+        key,
+        tree = [];
 
         keys = Object.keys(column);
         key = keys[0];
@@ -1358,7 +1442,7 @@ var Ramis = {};
         this.nodes.push("SET ");
 
         var count = columns.length - 1,
-            i;
+        i;
 
         for (i = 0; i < count; i += 1) {
             this.nodes = this.nodes.concat(set(columns[i]));
@@ -1392,9 +1476,9 @@ var Ramis = {};
      */
     function getResultColumn(columnName) {
         var name,
-            alias,
-            keys,
-            key;
+        alias,
+        keys,
+        key;
 
         if (typeof columnName === "string") {
             name = columnName;
@@ -1422,7 +1506,7 @@ var Ramis = {};
         this.nodes = [];
 
         var count,
-            i;
+        i;
 
         if (columnNames) {
             count = columnNames.length - 1;

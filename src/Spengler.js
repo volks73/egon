@@ -169,7 +169,8 @@ var Spengler = {};
      * Creates the metadata and/or schema for the database.
      */
     Spengler.createAll = function () {
-        var table, stmt;
+        var table, 
+            stmt;
 
         for (table in metadata) {
             stmt = dbConn.createAsyncStatement(metadata[table].toString());
@@ -187,14 +188,17 @@ var Spengler = {};
      *            [callback] - A callback.
      */
     Spengler.execute = function (statement, callback) {
-        var compiled = statement.compile(), stmtParams, bindings, stmt, key;
+        var stmtParams, 
+            bindings, 
+            stmt, 
+            key;
 
-        stmt = dbConn.createAsyncStatement(compiled.toString());
+        stmt = dbConn.createAsyncStatement(statement.toString());
         stmtParams = stmt.newBindingParamsArray();
         bindings = stmtParams.newBindingParams();
 
-        for (key in compiled.params) {
-            bindings.bindByName(key, compiled.params[key]);
+        for (key in statement.params) {
+            bindings.bindByName(key, statement.params[key]);
         }
 
         stmtParams.addParams(bindings);
@@ -202,82 +206,7 @@ var Spengler = {};
 
         stmt.executeAsync(callback);
     };
-
-    /**
-     * Creates a compiled statement.
-     * 
-     * @constructor
-     * 
-     * @param {String}
-     *            sql - The SQL string ready for parameter binding and
-     *            execution.
-     * @param {Object}
-     *            params - A literal with the properties as the keys for the
-     *            named bind parameters and the property values as the binding
-     *            values.
-     */
-    function Compiled (sql, params) {
-        this.sql = sql;
-        this.params = params;
-    }
-
-    /**
-     * The SQL string ready for parameter binding and execution.
-     * 
-     * @return {String} The SQL string.
-     */
-    Compiled.prototype.toString = function () {
-        return this.sql;
-    };
-
-    function Statement (clause) {
-        this.clause = clause;
-    }
-
-    Statement.prototype.compile = function () {
-        var sql = '', tree = this.clause.tree(), params = {}, paramCount = 0, node, i;
-
-        for (i = 0; i < tree.length; i += 1) {
-            node = tree[i];
-
-            if (node instanceof Param) {
-                if (!node.key) {
-                    node.key = generateParamKey(paramCount);
-                    paramCount += 1;
-                }
-
-                sql += ":" + node.key;
-                params[node.key] = node.value;
-            } else {
-                sql += node;
-            }
-        }
-
-        return new Compiled(sql, params);
-    };
-
-    /**
-     * Generates a named parameter key based on the current number of
-     * parameters.
-     * 
-     * A named parameter is created using the following pattern: 'paramA',
-     * 'paramB', 'paramC', ... 'paramAA', 'paramBB', ... 'paramAAA' and so on.
-     * 
-     * @param {Integer}
-     *            paramCount - The current number of parameters.
-     */
-    function generateParamKey (paramCount) {
-        var DEFAULT_PARAM = "param", charCode = 65 + (paramCount % 26), repeat = paramCount / 26, suffix, i;
-
-        suffix = String.fromCharCode(charCode);
-
-        for (i = 1; i < repeat; i += 1) {
-            suffix = String.fromCharCode(charCode);
-        }
-
-        return DEFAULT_PARAM + suffix;
-    }
-
+    
     /**
      * Creates a SQL database table.
      * 
@@ -290,8 +219,10 @@ var Spengler = {};
      *            should be Column objects and the keys will be added as
      *            properties to this table.
      */
-    function Table (name, schema) {
-        var that = this, keys, i;
+    function Table(name, schema) {
+        var that = this, 
+            keys,
+            i;
 
         this._name = name;
 
@@ -314,21 +245,14 @@ var Spengler = {};
     }
 
     /**
-     * Gets the name of this table.
-     * 
-     * @returns {String} The table name.
-     */
-    Table.prototype.name = function () {
-        return this._name;
-    };
-
-    /**
      * Gets an array of the columns for this table.
      * 
      * @returns {Array} - An array of table columns.
      */
     Table.prototype.columns = function () {
-        var columns = [], that = this, key;
+        var columns = [], 
+            that = this, 
+            key;
 
         for (key in that) {
             if (that[key] instanceof Column) {
@@ -345,7 +269,9 @@ var Spengler = {};
      * @returns {Array} - An array of foreign keys.
      */
     Table.prototype.foreignKeys = function () {
-        var foreignKeys = [], that = this, key;
+        var foreignKeys = [], 
+            that = this, 
+            key;
 
         for (key in that) {
             if (that[key] instanceof ForeignKey) {
@@ -364,8 +290,10 @@ var Spengler = {};
      * @returns {String} A SQL string.
      */
     Table.prototype.toString = function () {
-        var sql = "CREATE TABLE IF NOT EXISTS " + this._name + " (\n", columns = this
-        .columns(), foreignKeys = this.foreignKeys(), i;
+        var sql = "CREATE TABLE IF NOT EXISTS " + this._name + " (\n",
+            columns = this.columns(),
+            foreignKeys = this.foreignKeys(),
+            i;
 
         for (i = 0; i < columns.length; i += 1) {
             sql += columns[i] + ", \n";
@@ -387,20 +315,24 @@ var Spengler = {};
      * Creates a SQL {Insert} statement to insert values into this table.
      * 
      * @param {Object}
-     *            values - An object literal with the keys as the property name
-     *            for this table pointing to the columns.
+     *            values - The keys for each property is the property name for the column in the table.
      * @returns {Statement} An 'INSERT' statement.
      */
     Table.prototype.insert = function (values) {
-        var columnNames = [], insertValues = [], that = this, columnKey;
+        var columnNames = [],
+            insertValues = [],
+            that = this,
+            value,
+            columnKey;
 
         for (columnKey in values) {
+            value = {};
+            value[columnKey] = values[columnKey];
             columnNames.push(that[columnKey].name);
-            insertValues.push(values[columnKey]);
+            insertValues.push(value);
         }
 
-        return new Statement(Spengler.insert(this._name).columns(columnNames)
-                .values(insertValues));
+        return Ramis.compile(Ramis.insert(this._name).columns(columnNames).values(insertValues));
     };
 
     /**
@@ -597,7 +529,7 @@ var Spengler = {};
      */
     Column.prototype.toString = function () {
         // TODO: Add column-constraint support.
-        var sql = this.name + " " + this._type.dbType;
+        var sql = this.name + " " + this.type.dbType;
 
         if (this.primaryKey) {
             sql += " PRIMARY KEY";
