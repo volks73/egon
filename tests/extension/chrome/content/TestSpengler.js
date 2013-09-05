@@ -59,3 +59,6 @@ Spengler.createAll();
 
 var testInsert1 = jobOrderNumbersTable.insert({alias : "test1", accountNumber : "11-1111-1-1-1", description : "description1"});
 Spengler.execute(testInsert1);
+
+var testUpdate1 = jobOrderNumbersTable.update({alias : "test2", accountNumber : "22-2222-2-2-2", description : "description2"}).where(jobOrderNumbersTable.id.equals(1));
+Spengler.execute(testUpdate1);

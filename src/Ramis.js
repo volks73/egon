@@ -210,41 +210,7 @@ var Ramis = {};
 
         return DEFAULT_PARAM + suffix;
     }
-
-    /**
-     * Converts a clause into a parameter bindable and executable statment.
-     * 
-     * @param {Clause}
-     *            clause
-     * @returns {Statement}
-     */
-    Ramis.compile = function (clause) {
-        var sql = '', 
-        tree = clause.tree(), 
-        params = {}, 
-        paramCount = 0, 
-        node, 
-        i;
-
-        for (i = 0; i < tree.length; i += 1) {
-            node = tree[i];
-
-            if (node instanceof Param) {
-                if (!node.key) {
-                    node.key = generateParamKey(paramCount);
-                    paramCount += 1;
-                }
-
-                sql += ":" + node.key;
-                params[node.key] = node.value;
-            } else {
-                sql += node;
-            }
-        }
-
-        return new Statement(sql, params);
-    };
-
+    
     /**
      * Creates a new clause.
      * 
@@ -300,6 +266,40 @@ var Ramis = {};
 
         return str;
     };
+    
+    /**
+     * Converts a clause into a parameter bindable and executable statement.
+     * 
+     * @param {Clause}
+     *            clause
+     * @returns {Statement}
+     */
+    Clause.prototype.compile = function () {
+        var sql = '', 
+        tree = this.tree(), 
+        params = {}, 
+        paramCount = 0, 
+        node, 
+        i;
+
+        for (i = 0; i < tree.length; i += 1) {
+            node = tree[i];
+
+            if (node instanceof Param) {
+                if (!node.key) {
+                    node.key = generateParamKey(paramCount);
+                    paramCount += 1;
+                }
+
+                sql += ":" + node.key;
+                params[node.key] = node.value;
+            } else {
+                sql += node;
+            }
+        }
+
+        return new Statement(sql, params);
+    };
 
     /**
      * Creates a new SQL expression clause.
@@ -329,6 +329,8 @@ var Ramis = {};
 
         if (rightOperand !== undefined) {
             if (rightOperand instanceof Expr) {
+                tree.push(rightOperand);
+            } else if (rightOperand instanceof Param) {
                 tree.push(rightOperand);
             } else {
                 tree.push(new Param(rightOperand));
@@ -1435,14 +1437,17 @@ var Ramis = {};
      * @constructor
      * 
      * @param {Array}
-     *            columns
+     *            columns - The elements are {Object} with the key as the column
+     *            name and the value can be either a primitative or another
+     *            {Object} with the key as the named parameter and the value to
+     *            be substituted for each column to update.
      */
     function Set(columns) {
         this.nodes = [];
         this.nodes.push("SET ");
 
         var count = columns.length - 1,
-        i;
+            i;
 
         for (i = 0; i < count; i += 1) {
             this.nodes = this.nodes.concat(set(columns[i]));
@@ -1455,6 +1460,17 @@ var Ramis = {};
 
     Set.prototype = new Clause();
 
+    /**
+     * Creates a new result column.
+     * 
+     * @constructor
+     * 
+     * @param {String}
+     *            name - The column name.
+     * @param {String}
+     *            [alias] - The column name alias.
+     * @returns
+     */
     function ResultColumn(name, alias) {
         this.nodes = [];
         this.nodes.push(name);
@@ -1476,9 +1492,9 @@ var Ramis = {};
      */
     function getResultColumn(columnName) {
         var name,
-        alias,
-        keys,
-        key;
+            alias,
+            keys,
+            key;
 
         if (typeof columnName === "string") {
             name = columnName;
@@ -1496,6 +1512,7 @@ var Ramis = {};
      * Creates a result columns list clause.
      * 
      * @constructor
+     * 
      * @param {Array}
      *            [columnNames] - Elements are either {String} or {Object}. If
      *            {String}, 'AS alias' clause is created and added. If {Object},
@@ -1503,11 +1520,11 @@ var Ramis = {};
      *            is created and added.
      */
     function ResultColumns(columnNames) {
-        this.nodes = [];
-
         var count,
-        i;
+            i;
 
+        this.nodes = [];
+        
         if (columnNames) {
             count = columnNames.length - 1;
 
@@ -1627,8 +1644,9 @@ var Ramis = {};
      * column-nameN = valueN' clauses to this 'UPDATE' clause tree.
      * 
      * @param {Array}
-     *            columns - An object literal with the keys as the column names
-     *            and the values as the values to update.
+     *            columns - The elements are objects with one property for each
+     *            object where the key is the column name and the value is the
+     *            value to substitute.
      * @returns {Update} The 'UPDATE' clause.
      */
     Update.prototype.set = function (columns) {
@@ -2171,5 +2189,15 @@ var Ramis = {};
      */
     Ramis.where = function (expr) {
         return new Where(expr);
+    };
+    
+    /**
+     * Factory method for creating a new 'Param'.
+     * 
+     * @param {String} name - The named parameter.
+     * @param {Object} value - The value to substitute.
+     */
+    Ramis.param = function (name, value) {
+        return new Param(value, name);
     };
 }());

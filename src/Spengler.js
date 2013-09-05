@@ -182,17 +182,20 @@ var Spengler = {};
      * Executes a SQL statement. Calls the 'compile' function of the statement,
      * binds the parameters, and asynchronously executes.
      * 
-     * @param {Statement}
-     *            statement - A SQL statement.
+     * @param {Clause}
+     *            clause 
      * @param {mozIStorageStatementCallback}
      *            [callback] - A callback.
      */
-    Spengler.execute = function (statement, callback) {
-        var stmtParams, 
+    Spengler.execute = function (clause, callback) {
+        var statement = clause.compile(),
+            stmtParams, 
             bindings, 
             stmt, 
             key;
 
+        dump("statement: " + statement);
+            
         stmt = dbConn.createAsyncStatement(statement.toString());
         stmtParams = stmt.newBindingParamsArray();
         bindings = stmtParams.newBindingParams();
@@ -315,44 +318,43 @@ var Spengler = {};
      * Creates a SQL {Insert} statement to insert values into this table.
      * 
      * @param {Object}
-     *            values - The keys for each property is the property name for the column in the table.
+     *            values - The keys for each property is the property name of the column in the table.
      * @returns {Statement} An 'INSERT' statement.
      */
     Table.prototype.insert = function (values) {
         var columnNames = [],
             insertValues = [],
             that = this,
-            value,
             columnKey;
 
         for (columnKey in values) {
-            value = {};
-            value[columnKey] = values[columnKey];
             columnNames.push(that[columnKey].name);
-            insertValues.push(value);
+            insertValues.push(Ramis.param(columnKey, values[columnKey]));
         }
 
-        return Ramis.compile(Ramis.insert(this._name).columns(columnNames).values(insertValues));
+        return Ramis.insert(this._name).columns(columnNames).values(insertValues);
     };
 
     /**
      * Creates a SQL {Update} statement to update values in this table.
      * 
      * @param {Object}
-     *            values - An object literal with the keys as the property name
-     *            for this table pointing to the columns.
-     * @returns {Update} A SQL 'UPDATE' statement.
+     *            values - The keys for each property is the property name of the column in the table.
+     * @returns {Update} An 'UPDATE' statement.
      */
     Table.prototype.update = function (values) {
-        var that = this, columns = [], column, columnKey;
+        var that = this, 
+            columns = [],
+            column,
+            columnKey;
 
         for (columnKey in values) {
-            column = Object.create({});
-            column[that[columnKey].name] = values[columnKey];
+            column = {};
+            column[that[columnKey].name] = Ramis.param(columnKey, values[columnKey]);
             columns.push(column);
         }
 
-        return Spengler.update(this._name).set(columns);
+        return Ramis.update(this._name).set(columns);
     };
 
     /**
@@ -451,8 +453,8 @@ var Spengler = {};
      * @returns {Expr} A SQL expression that can be used for a 'WHERE' clause or
      *          chained together with other expressions.
      */
-    Column.prototype.equals = function (rightOperand) {
-        return Spengler.expr().column(this.name).equals(rightOperand);
+    Column.prototype.equals = function (rightOperand) {        
+        return Ramis.expr().column(this.name).equals(rightOperand);
     };
 
     /**
@@ -465,7 +467,7 @@ var Spengler = {};
      *          chained together with other expressions.
      */
     Column.prototype.notEquals = function (rightOperand) {
-        return Spengler.expr().column(this.name).notEquals(value);
+        return Ramis.expr().column(this.name).notEquals(value);
     };
 
     /**
@@ -478,7 +480,7 @@ var Spengler = {};
      *          chained together with other expressions.
      */
     Column.prototype.lessThan = function (rightOperand) {
-        return Spengler.expr().column(this.name).lessThan(rightOperand);
+        return Ramis.expr().column(this.name).lessThan(rightOperand);
     };
 
     /**
@@ -491,7 +493,7 @@ var Spengler = {};
      *          chained together with other expressions.
      */
     Column.prototype.greaterThan = function (rightOperand) {
-        return Spengler.expr().column(this.name).greaterThan(rightOperand);
+        return Ramis.expr().column(this.name).greaterThan(rightOperand);
     };
 
     /**
@@ -504,7 +506,7 @@ var Spengler = {};
      *          chained together with other expressions.
      */
     Column.prototype.lessThanEquals = function (rightOperand) {
-        return Spengler.expr().column(this.name).lessThanEquals(rightOperand);
+        return Ramis.expr().column(this.name).lessThanEquals(rightOperand);
     };
 
     /**
@@ -518,8 +520,7 @@ var Spengler = {};
      *          chained together with other expressions.
      */
     Column.prototype.greaterThanEquals = function (rightOperand) {
-        return Spengler.expr().column(this.name)
-        .greaterThanEquals(rightOperand);
+        return Ramis.expr().column(this.name).greaterThanEquals(rightOperand);
     };
 
     /**
