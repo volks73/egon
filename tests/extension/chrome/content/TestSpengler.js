@@ -62,3 +62,12 @@ Spengler.execute(testInsert1);
 
 var testUpdate1 = jobOrderNumbersTable.update({alias : "test2", accountNumber : "22-2222-2-2-2", description : "description2"}).where(jobOrderNumbersTable.id.equals(1));
 Spengler.execute(testUpdate1);
+
+var testSelect1 = jobOrderNumbersTable.select();
+Spengler.execute(testSelect1, {});
+
+var testSelect2 = jobOrderNumberTable.select().where(jobOrderNumbersTable.id.equals(1));
+Spengler.execute(testSelect2, {});
+
+var testSelect3 = purchaseOrdersTable.select().join(companiesTable).join(jobOrderNumbersTable).where(purchaseOrdersTable.id.equals(1));
+Spengler.execute(testSelect3, {});

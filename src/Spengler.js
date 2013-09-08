@@ -152,6 +152,109 @@ const DEFERS = {
     IMMEDIATE : 'INITIALLY IMMEDIATE',
 };
 
+// TODO: Add JSDocs to prototypes and constructors.
+
+function Statement(clause) {
+    this.clause = clause;
+}
+
+Statement.prototype = {
+    clause : null,
+    compile : function () {
+        // TODO: Move 'compile' function from Ramis library to here.
+        // TODO: Remove 'Statement' prototype from Ramis Library.
+    },
+};
+
+function InsertStatement(table, values) {   
+    var columnNames = [], 
+        insertValues = [], 
+        columnKey;
+
+    Statement.call(this);
+    
+    for (columnKey in values) {
+        columnNames.push(that[columnKey].name);
+        insertValues.push(Ramis.param(columnKey, values[columnKey]));
+    }
+
+    this.clause = Ramis.insert(table.name()).columns(columnNames).values(insertValues);
+}
+
+InsertStatement.prototype = Object.create(Statement.prototype);
+
+function UpdateStatement(table, values) {
+    var columns = [],
+        column,
+        columnKey;
+    
+    Statement.call(this);
+    
+    for (columnKey in values) {
+        column = {};
+        column[that[columnKey].name] = Ramis.param(columnKey,
+                values[columnKey]);
+        columns.push(column);
+    }
+    
+    this.clause = Ramis.update(table.name()).set(columns);
+}
+
+UpdateStatement.prototype = Object.create(Statement.prototype, {
+    where : {
+        value : function (expr) {
+            this.clause.where(expr);
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
+});
+
+function SelectStatement(table, columns) {
+    var columnNames = [], 
+        columnName = {},
+        column,
+        i;
+
+    Statement.call(this);
+    
+    for (i = 0; i < columns.length; i += 1) {
+        column = columns[i];
+
+        if (column.alias) {
+            columnName = {};
+            columnName[column.alias] = column.name;
+            columnNames.push(columnName);
+        } else {
+            columnNames.push(column.name);
+        }
+    }  
+    
+    this.clause = Ramis.select(columns).from(table.name());
+}
+
+SelectStatement.prototype = Object.create(Statement.prototype, {
+    join : {
+        value : function (table) {
+            // TODO: Find foreign keys and automatically add appropriate join clauses to this clause.
+            this.clause.join(table.name());
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
+    
+    where : {
+        value : function (expr) {
+            this.clause.where(expr);
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
+});
+
 /**
  * Creates a SQL database table.
  * 
@@ -189,6 +292,15 @@ function Table (name, schema) {
 
 Table.prototype = {
     _name : null,
+    
+    /**
+     * Gets the name.
+     * 
+     * @returns {String}
+     */
+    name : function () {
+        return _name;
+    },
 
     /**
      * Gets an array of the columns for this table.
@@ -260,15 +372,7 @@ Table.prototype = {
      * @returns {Statement} An 'INSERT' statement.
      */
     insert : function (values) {
-        var columnNames = [], insertValues = [], that = this, columnKey;
-
-        for (columnKey in values) {
-            columnNames.push(that[columnKey].name);
-            insertValues.push(Ramis.param(columnKey, values[columnKey]));
-        }
-
-        return Ramis.insert(this._name).columns(columnNames).values(
-                insertValues);
+        return new InsertStatement(this, values);
     },
 
     /**
@@ -280,16 +384,7 @@ Table.prototype = {
      * @returns {Update} An 'UPDATE' statement.
      */
     update : function (values) {
-        var that = this, columns = [], column, columnKey;
-
-        for (columnKey in values) {
-            column = {};
-            column[that[columnKey].name] = Ramis.param(columnKey,
-                    values[columnKey]);
-            columns.push(column);
-        }
-
-        return Ramis.update(this._name).set(columns);
+        return new UpdateStatement(this, values);
     },
 
     /**
@@ -302,21 +397,7 @@ Table.prototype = {
      * @returns {Select} A 'SELECT' statement.
      */
     select : function (columns) {
-        var columnNames = [], columnName = {}, column, i;
-
-        for (i = 0; i < columns.length; i += 1) {
-            column = columns[i];
-
-            if (column.alias) {
-                columnName = {};
-                columnName[column.alias] = column.name;
-                columnNames.push(columnName);
-            } else {
-                columnNames.push(column.name);
-            }
-        }
-
-        return Ramis.select(columnNames);
+        return new SelectStatement(this, columns);
     },
 };
 

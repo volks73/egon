@@ -154,6 +154,8 @@ Param.prototype = {
     },
 };
 
+// TODO: Move 'CompiledStatement' to 'Spengler'.
+
 /**
  * A bindable and SQL executable statement.
  * 
@@ -263,6 +265,8 @@ function generateParamKey(paramCount) {
 
     return DEFAULT_PARAM + suffix;
 }
+
+// TODO: Move 'Statement' to Spengler. Ramis is only clause generation and should be independent of execution. A statement implements compiling and execution.
 
 /**
  * A clause that can be compiled for excution.
