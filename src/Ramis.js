@@ -166,48 +166,18 @@ Param.prototype = {
  *            key is the bind parameter name and the value is the value to
  *            substitute.
  */
-function Statement(sql, params) {
+function CompiledStatement(sql, params) {
     this.sql = sql;
     this.params = params;
 }
 
-/**
- * Gets the SQL string.
- * 
- * @returns {String}
- */
-Statement.prototype = {
+CompiledStatement.prototype = {
     sql : null,
     params : null,
     toString : function () {
-        return this.sql;   
+        return this.sql;
     },
 };
-
-/**
- * Generates a named parameter key based on the current number of parameters.
- * 
- * A named parameter is created using the following pattern: 'paramA', 'paramB',
- * 'paramC', ... 'paramAA', 'paramBB', ... 'paramAAA' and so on.
- * 
- * @param {Integer}
- *            paramCount - The current number of parameters.
- */
-function generateParamKey(paramCount) {
-    var DEFAULT_PARAM = "param", 
-    charCode = 65 + (paramCount % 26), 
-    repeat = paramCount / 26, 
-    suffix, 
-    i;
-
-    suffix = String.fromCharCode(charCode);
-
-    for (i = 1; i < repeat; i += 1) {
-        suffix = String.fromCharCode(charCode);
-    }
-
-    return DEFAULT_PARAM + suffix;
-}
 
 /**
  * Creates a new clause.
@@ -267,7 +237,43 @@ Clause.prototype = {
 
         return str;
     },
+};
 
+/**
+ * Generates a named parameter key based on the current number of parameters.
+ * 
+ * A named parameter is created using the following pattern: 'paramA', 'paramB',
+ * 'paramC', ... 'paramAA', 'paramBB', ... 'paramAAA' and so on.
+ * 
+ * @param {Integer}
+ *            paramCount - The current number of parameters.
+ */
+function generateParamKey(paramCount) {
+    var DEFAULT_PARAM = "param", 
+    charCode = 65 + (paramCount % 26), 
+    repeat = paramCount / 26, 
+    suffix, 
+    i;
+
+    suffix = String.fromCharCode(charCode);
+
+    for (i = 1; i < repeat; i += 1) {
+        suffix = String.fromCharCode(charCode);
+    }
+
+    return DEFAULT_PARAM + suffix;
+}
+
+/**
+ * A clause that can be compiled for excution.
+ * 
+ * @constructor
+ */
+function Statement() {
+    Clause.call(this);
+}
+
+Statement.prototype = Object.create(Clause.prototype, {
     /**
      * Converts a clause into a parameter bindable and executable statement.
      * 
@@ -275,44 +281,38 @@ Clause.prototype = {
      *            clause
      * @returns {Statement}
      */
-    compile : function () {
-        var sql = '', 
-        tree = this.tree(), 
-        params = {}, 
-        paramCount = 0, 
-        node, 
-        i;
+    compile : {
+        value : function () {
+            var sql = '', 
+            tree = this.tree(), 
+            params = {}, 
+            paramCount = 0, 
+            node, 
+            i;
 
-        for (i = 0; i < tree.length; i += 1) {
-            node = tree[i];
+            for (i = 0; i < tree.length; i += 1) {
+                node = tree[i];
 
-            if (node instanceof Param) {
-                if (!node.key) {
-                    node.key = generateParamKey(paramCount);
-                    paramCount += 1;
+                if (node instanceof Param) {
+                    if (!node.key) {
+                        node.key = generateParamKey(paramCount);
+                        paramCount += 1;
+                    }
+
+                    sql += ":" + node.key;
+                    params[node.key] = node.value;
+                } else {
+                    sql += node;
                 }
-
-                sql += ":" + node.key;
-                params[node.key] = node.value;
-            } else {
-                sql += node;
             }
-        }
 
-        return new Statement(sql, params);
+            return new CompiledStatement(sql, params);
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
     },
-};
-
-/**
- * Creates a new SQL expression clause.
- * 
- * @constructor
- */
-function Expr() {
-    Clause.call(this);
-}
-
-Expr.prototype = Object.create(Clause.prototype);
+});
 
 /**
  * Adds a binary operator and its right operand to the tree. The left operand is
@@ -343,564 +343,771 @@ function binaryOperator(operator, rightOperand) {
 }
 
 /**
- * Adds a literal value to the expression tree. This does not directly add the
- * value, but adds {Param} to the tree that is later bound to the value just
- * before execution. This avoids problems with Ramis injection attacks and other
- * bad things.
+ * Creates a new SQL expression clause.
  * 
- * @param {Object}
- *            value - A literal value.
- * @returns {Expr} This Ramis expression clause.
+ * @constructor
  */
-Expr.prototype.literal = function (value) {
-    if (value === LITERAL_VALUE.NULL) {
-        this.nodes.push(LITERAL_VALUE.NULL);
-    } else if (value === LITERAL_VALUE.CURRENT_TIME) {
-        this.nodes.push(LITERAL_VALUE.CURRENT_TIME);
-    } else if (value === LITERAL_VALUE.CURRENT_DATE) {
-        this.nodes.push(LITERAL_VALUE.CURRENT_DATE);
-    } else if (value === LITERAL_VALUE.CURRENT_TIMESTAMP) {
-        this.nodes.push(LITERAL_VALUE.CURRENT_TIMESTAMP);
-    } else {
-        this.nodes.push(new Param(value));
-    }
-
-    return this;
-};
-
-/**
- * Adds a column name to the expression tree.
- * 
- * @param {String}
- *            columnName - A column name.
- * @returns {Expr} This Ramis expression clause.
- */
-Expr.prototype.column = function (columnName) {
-    this.nodes.push(columnName);
-
-    return this;
-};
-
-/**
- * Begins a grouping.
- * 
- * This adds a '(' onto the expression tree.
- * 
- * @returns {Expr} This Ramis expression clause.
- */
-Expr.prototype.begin = function () {
-    this.nodes.push("(");
-
-    return this;
-};
-
-/**
- * Ends a grouping.
- * 
- * This adds a ')' onto the expression tree.
- * 
- * @returns {Expr} This Ramis expression clause.
- */
-Expr.prototype.end = function () {
-    this.nodes.push(")");
-
-    return this;
-};
-
-/**
- * Adds the 'NOT' operator to the expression tree.
- * 
- * @param {Expr|String|Number}
- *            [operand] - The operand to the binary operator.
- * @returns {Expr} This expression clause.
- */
-Expr.prototype.not = function (operand) {
-    this.nodes = this.nodes.concat(binaryOperator(OPERATORS.NOT, operand));
-
-    return this;
-};
-
-/**
- * Adds the '||' concatenate operator to the expression tree.
- * 
- * @param {Expr|String|Number}
- *            rightOperand - The right operand to the binary operator.
- * @returns {Expr} This expression clause.
- */
-Expr.prototype.concat = function (rightOperand) {
-    this.nodes = this.nodes.concat(binaryOperator(OPERATORS.CONCAT, rightOperand));
-
-    return this;
-};
-
-/**
- * Adds the '*' multiply operator to the expression tree.
- * 
- * @param {Expr|String|Number}
- *            rightOperand - The right operand to the binary operator.
- * @returns {Expr} This Ramis expression clause.
- */
-Expr.prototype.multiply = function (rightOperand) {
-    this.nodes = this.nodes.concat(binaryOperator(OPERATORS.MULTIPLY, rightOperand));
-
-    return this;
-};
-
-/**
- * Adds the '*' multiply operator to the expression tree.
- * 
- * @param {Expr|String|Number}
- *            rightOperand - The right operand to the binary operator.
- * @returns {Expr} This Ramis expression clause.
- */
-Expr.prototype.times = function (rightOperand) {
-    this.nodes = this.nodes.concat(binaryOperator(OPERATORS.MULTIPLY, rightOperand));
-
-    return this;
-};
-
-/**
- * Adds the '/' divide operator to the expression tree.
- * 
- * @param {Expr|String|Number}
- *            rightOperand - The right operand to the binary operator.
- * @returns {Expr} This Ramis expression clause.
- */
-Expr.prototype.divide = function (rightOperand) {
-    this.nodes = this.nodes.concat(binaryOperator(OPERATORS.DIVIDE, rightOperand));
-
-    return this;
-};
-
-/**
- * Adds the '/' divide operator to the expression tree.
- * 
- * @param {Expr|String|Number}
- *            rightOperand - The right operand to the binary operator.
- * @returns {Expr} This Ramis expression clause.
- */
-Expr.prototype.dividedBy = function (rightOperand) {
-    this.nodes = this.nodes.concat(binaryOperator(OPERATORS.DIVIDE, rightOperand));
-
-    return this;
-};
-
-/**
- * Adds the '%' modulo operator to the expression tree.
- * 
- * @param {Expr|String|Number}
- *            rightOperand - The right operand to the binary operator.
- * @returns {Expr} This Ramis expression clause.
- */
-Expr.prototype.modulo = function (rightOperand) {
-    this.nodes = this.nodes.concat(binaryOperator(OPERATORS.MODULO, rightOperand));
-
-    return this;
-};
-
-/**
- * Adds the '%' modulo operator to the expression tree.
- * 
- * @param {Expr|String|Number}
- *            rightOperand - The right operand to the binary operator.
- * @returns {Expr} This Ramis expression clause.
- */
-Expr.prototype.remainder = function (rightOperand) {
-    this.nodes = this.nodes.concat(binaryOperator(OPERATORS.MODULO, rightOperand));
-
-    return this;
-};
-
-/**
- * Adds the '+' add operator to the expression tree.
- * 
- * @param {Expr|String|Number}
- *            rightOperand - The right operand to the binary operator.
- * @returns {Expr} This Ramis expression clause.
- */
-Expr.prototype.add = function (rightOperand) {
-    this.nodes = this.nodes.concat(binaryOperator(OPERATORS.ADD, rightOperand));
-
-    return this;
-};
-
-/**
- * Adds the '-' subtract operator to the expression tree.
- * 
- * @param {Expr|String|Number}
- *            rightOperand - The right operand to the binary operator.
- * @returns {Expr} This Ramis expression clause.
- */
-Expr.prototype.subtract = function (rightOperand) {
-    this.nodes = this.nodes.concat(binaryOperator(OPERATORS.SUBTRACT, rightOperand));
-
-    return this;
-};
-
-/**
- * Adds the '<' less than operator to the expression tree.
- * 
- * @param {Expr|String|Number}
- *            [rightOperand] - The right operand to the binary operator.
- * @returns {Expr} This Ramis expression clause.
- */
-Expr.prototype.lessThan = function (rightOperand) {
-    this.nodes = this.nodes.concat(binaryOperator(OPERATORS.MULTIPLY, rightOperand));
-
-    return this;
-};
-
-/**
- * Adds the '<=' less than equals operator to the expression tree.
- * 
- * @param {Expr|String|Number}
- *            [rightOperand] - The right operand to the binary operator.
- * @returns {Expr} This Ramis expression clause.
- */
-Expr.prototype.lessThanEquals = function (rightOperand) {
-    this.nodes = this.nodes.concat(binaryOperator(OPERATORS.LESS_THAN_EQUALS, rightOperand));
-
-    return this;
-};
-
-/**
- * Adds the '>' greater than operator to the expression tree.
- * 
- * @param {Expr|String|Number}
- *            [rightOperand] - The right operand to the binary operator.
- * @returns {Expr} This Ramis expression clause.
- */
-Expr.prototype.greaterThan = function (rightOperand) {
-    this.nodes = this.nodes.concat(binaryOperator(OPERATORS.GREATER_THAN, rightOperand));
-
-    return this;
-};
-
-/**
- * Adds the '>=' greater than equals operator to the expression tree.
- * 
- * @param {Expr|String|Number}
- *            [rightOperand] - The right operand to the binary operator.
- * @returns {Expr} This Ramis expression clause.
- */
-Expr.prototype.greaterThanEquals = function (rightOperand) {
-    this.nodes = this.nodes.concat(binaryOperator(OPERATORS.GREATER_THAN_EQUALS, rightOperand));
-
-    return this;
-};
-
-/**
- * Adds the '=' or '==' equals operator to the expression tree.
- * 
- * @param {Expr|String|Number}
- *            rightOperand - The right operand to the binary operator.
- * @returns {Expr} This Ramis expression clause.
- */
-Expr.prototype.equals = function (rightOperand) {
-    this.nodes = this.nodes.concat(binaryOperator(OPERATORS.EQUALS, rightOperand));
-
-    return this;
-};
-
-/**
- * Adds the '!=' not equals operator to the expression tree.
- * 
- * @param {Expr|String|Number}
- *            [rightOperand] - The right operand to the binary operator.
- * @returns {Expr} This Ramis expression clause.
- */
-Expr.prototype.notEquals = function (rightOperand) {
-    this.nodes = this.nodes.concat(binaryOperator(OPERATORS.NOT_EQUALS, rightOperand));
-
-    return this;
-};
-
-/**
- * Adds the 'AND' operator to the expression tree.
- * 
- * @param {Expr|String|Number}
- *            [rightOperand] - The right operand to the binary operator.
- * @returns {Expr} This Ramis expression clause.
- */
-Expr.prototype.and = function (rightOperand) {
-    this.nodes = this.nodes.concat(binaryOperator(OPERATORS.AND, rightOperand));
-
-    return this;
-};
-
-/**
- * Adds the 'OR' operator to the expression tree.
- * 
- * @param {Expr|String|Number}
- *            [rightOperand] - The right operand to the binary operator.
- * @returns {Expr} This Ramis expression clause.
- */
-Expr.prototype.or = function (rightOperand) {
-    this.nodes = this.nodes.concat(binaryOperator(OPERATORS.OR, rightOperand));
-
-    return this;
-};
-
-/**
- * Adds the 'LIKE' operator to the expression tree.
- * 
- * @param {Expr|String|Number}
- *            [rightOperand] - The right operand to the binary operator.
- * @returns {Expr} This Ramis expression clause.
- */
-Expr.prototype.like = function (rightOperand) {
-    this.nodes = this.nodes.concat(binaryOperator(OPERATORS.LIKE, rightOperand));
-
-    return this;
-};
-
-/**
- * Adds the 'GLOB' operator to the expression tree.
- * 
- * @param {Expr|String|Number}
- *            [rightOperand] - The right operand to the binary operator.
- * @returns {Expr} This Ramis expression clause.
- */
-Expr.prototype.glob = function (rightOperand) {
-    this.nodes = this.nodes.concat(binaryOperator(OPERATORS.GLOB, rightOperand));
-
-    return this;
-};
-
-/**
- * Adds the 'REGEXP' operator to the expression tree.
- * 
- * @param {Expr|String|Number}
- *            [rightOperand] - The right operand to the binary operator.
- * @returns {Expr} This Ramis expression clause.
- */
-Expr.prototype.regexp = function (rightOperand) {
-    this.nodes = this.nodes.concat(binaryOperator(OPERATORS.REGEXP, rightOperand));
-
-    return this;
-};
-
-/**
- * Adds the 'MATCH' operator to the expression tree.
- * 
- * @param {Expr|String|Number}
- *            [rightOperand] - The right operand to the binary operator.
- * @returns {Expr} This Ramis expression clause.
- */
-Expr.prototype.match = function (rightOperand) {
-    this.nodes = this.nodes.concat(binaryOperator(OPERATORS.MATCH, rightOperand));
-
-    return this;
-};
-
-/**
- * Adds the 'IS' operator to the expression tree.
- * 
- * @param {Expr|String|Number}
- *            [rightOperand] - The right operand to the binary operator.
- * @returns {Expr} This Ramis expression clause.
- */
-Expr.prototype.is = function (rightOperand) {
-    this.nodes = this.nodes.concat(binaryOperator(OPERATORS.IS, rightOperand));
-
-    return this;
-};
-
-/**
- * Adds the 'IS NOT' operator to the expression tree.
- * 
- * @param {Expr|String|Number}
- *            [rightOperand] - The right operand to the binary operator.
- * @returns {Expr} This Ramis expression clause.
- */
-Expr.prototype.isNot = function (rightOperand) {
-    this.nodes = this.nodes.concat(binaryOperator(OPERATORS.IS_NOT, rightOperand));
-
-    return this;
-};
-
-/**
- * Adds the 'IN' operator to the expression tree.
- * 
- * @param {Expr|String|Number}
- *            [rightOperand] - The right operand to the binary operator.
- * @returns {Expr} This Ramis expression clause.
- */
-Expr.prototype.in = function (rightOperand) {
-    this.nodes = this.nodes.concat(binaryOperator(OPERATORS.IN, rightOperand));
-
-    return this;
-};
-
-/**
- * Adds the 'CAST' function to the expression tree.
- * 
- * @param {Expr|String|Number}
- *            expr - The object to cast.
- * @param {TypeConstant}
- *            toType - The type to convert or cast the expr to.
- * @returns {Expr} This Ramis expression clause.
- */
-Expr.prototype.cast = function (expr, toType) {
-    this.nodes.push(" CAST ");
-    this.begin();
-    this.nodes.push(expr);
-    this.nodes.push(" AS ");
-    this.nodes.push(toType.dbType);
-    this.end();
-
-    return this;
-};
-
-/**
- * Adds the 'COLLATE' function to the expression tree.
- * 
- * @param {Expr|String|Number}
- *            expr - The object to collate.
- * @param {CollateConstant}
- *            collation - The collation.
- * @returns {Expr} This Ramis expression clause.
- */
-Expr.prototype.collate = function (expr, collation) {
-    this.nodes.push(expr);
-    this.nodes.push(collation);
-
-    return this;
-};
-
-/**
- * Adds the 'ISNULL' operation to the expression tree.
- * 
- * @returns {Expr} This Ramis expression clause.
- */
-Expr.prototype.isNull = function () {
-    this.nodes.push(" ISNULL");
-
-    return this;
-};
-
-/**
- * Adds the 'NOTNULL' operation to the expression tree.
- * 
- * @returns {Expr} This Ramis expression clause.
- */
-Expr.prototype.notNull = function () {
-    this.nodes.push(" NOTNULL");
-
-    return this;
-};
-
-/**
- * Adds the 'ESCAPE' operation to the expression tree.
- * 
- * @param {Expr}
- *            expr - The escape expression.
- * @returns {Expr} This Ramis expression clause.
- */
-Expr.prototype.escape = function (expr) {
-    this.nodes.push(" ESCAPE ");
-    this.nodes.push(expr);
-
-    return this;
-};
-
-/**
- * Adds the 'BETWEEN' clause to the expression tree.
- * 
- * @param {Expr|String|Number}
- *            leftOperand - The left operand.
- * @param {Expr|String|Number}
- *            rightOperand - The right operand.
- * @returns {Expr} This Ramis expression clause.
- */
-Expr.prototype.between = function (leftOperand, rightOperand) {
-    this.nodes.push(" BETWEEN ");
-    this.nodes.push(leftOperand);
-    this.nodes.push(" AND ");
-    this.nodes.push(rightOperand);
-
-    return this;
-};
-
-/**
- * Adds the 'EXISTS' clause to the expression tree.
- * 
- * @param {Clause}
- *            select - A select clause.
- * @returns {Expr} This Ramis expression clause.
- */
-Expr.prototype.exists = function (select) {
-    this.nodes.push(" EXISTS ");
-    this.begin();
-    this.nodes.push(select);
-    this.end();
-
-    return this;
-};
-
-/**
- * Adds the 'CASE' clause to the expression tree.
- * 
- * @param {Expr}
- *            expr - The expression.
- * @param {Expr}
- *            whenExpr - The when expression.
- * @param {Expr}
- *            thenExpr - The then expression.
- * @param {Expr}
- *            elseExpr - The else expression.
- * @returns {Expr} This Ramis expression clause.
- */
-Expr.prototype.case = function (expr, whenExpr, thenExpr, elseExpr) {
-    this.nodes.push(" CASE ");
-    this.nodes.push(expr);
-    this.nodes.push(" WHEN ");
-    this.nodes.push(whenExpr);
-    this.nodes.push(" THEN ");
-    this.nodes.push(thenExpr);
-    this.nodes.push(" ELSE ");
-    this.nodes.push(elseExpr);
-    this.nodes.push(" END");
-
-    return this;
-};
-
-/**
- * Adds the 'raise-function' clause to the expression tree.
- * 
- * @param {RaiseFunctionsConstant}
- *            func - The raise function.
- * @param {String}
- *            errorMessage - The error message.
- * @returns {Expr} This Ramis expression clause.
- */
-Expr.prototype.raise = function (func, errorMessage) {
-    this.nodes.push(" RAISE ");
-    this.begin();
-    this.nodes.push(func);
-
-    if (func !== Ramis.RAISE_FUNCTIONS.IGNORE) {
-        this.nodes.push(", ");
-        this.nodes.push(errorMessage);
-    }
-
-    this.end();
-
-    return this;
-};
-
-/**
- * Adds an expression to this expression clause.
- * 
- * @param {Expr}
- *            expr - An Ramis expression clause.
- * @returns {Expr} This Ramis expression clause.
- */
-Expr.prototype.expr = function (expr) {
-    this.nodes.push(expr);
-
-    return this;
-};
+function Expr() {
+    Clause.call(this);
+}
+
+Expr.prototype = Object.create(Clause.prototype, {
+    /**
+     * Adds a literal value to the expression tree. This does not directly add
+     * the value, but adds {Param} to the tree that is later bound to the value
+     * just before execution. This avoids problems with Ramis injection attacks
+     * and other bad things.
+     * 
+     * @param {Object}
+     *            value - A literal value.
+     * @returns {Expr} This Ramis expression clause.
+     */
+    literal : {
+        value : function (value) {
+            if (value === LITERAL_VALUE.NULL) {
+                this.nodes.push(LITERAL_VALUE.NULL);
+            } else if (value === LITERAL_VALUE.CURRENT_TIME) {
+                this.nodes.push(LITERAL_VALUE.CURRENT_TIME);
+            } else if (value === LITERAL_VALUE.CURRENT_DATE) {
+                this.nodes.push(LITERAL_VALUE.CURRENT_DATE);
+            } else if (value === LITERAL_VALUE.CURRENT_TIMESTAMP) {
+                this.nodes.push(LITERAL_VALUE.CURRENT_TIMESTAMP);
+            } else {
+                this.nodes.push(new Param(value));
+            }
+
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
+
+    /**
+     * Adds a column name to the expression tree.
+     * 
+     * @param {String}
+     *            columnName - A column name.
+     * @returns {Expr} This Ramis expression clause.
+     */
+    column : {
+        value : function (columnName) {
+            this.nodes.push(columnName);
+
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
+
+    /**
+     * Begins a grouping.
+     * 
+     * This adds a '(' onto the expression tree.
+     * 
+     * @returns {Expr} This Ramis expression clause.
+     */
+    begin : {
+        value : function () {
+            this.nodes.push("(");
+
+            return this;
+        },
+        enumerable : true,
+        configuration : true,
+        writable : true,
+    },
+
+    /**
+     * Ends a grouping.
+     * 
+     * This adds a ')' onto the expression tree.
+     * 
+     * @returns {Expr} This Ramis expression clause.
+     */
+    end : {
+        value : function () {
+            this.nodes.push(")");
+
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
+
+    /**
+     * Adds the 'NOT' operator to the expression tree.
+     * 
+     * @param {Expr|String|Number}
+     *            [operand] - The operand to the binary operator.
+     * @returns {Expr} This expression clause.
+     */
+    not : {
+        value : function (operand) {
+            this.nodes = this.nodes.concat(binaryOperator(OPERATORS.NOT, operand));
+
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
+
+    /**
+     * Adds the '||' concatenate operator to the expression tree.
+     * 
+     * @param {Expr|String|Number}
+     *            rightOperand - The right operand to the binary operator.
+     * @returns {Expr} This expression clause.
+     */
+    concat : {
+        value : function (rightOperand) {
+            this.nodes = this.nodes.concat(binaryOperator(OPERATORS.CONCAT, rightOperand));
+
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
+
+    /**
+     * Adds the '*' multiply operator to the expression tree.
+     * 
+     * @param {Expr|String|Number}
+     *            rightOperand - The right operand to the binary operator.
+     * @returns {Expr} This Ramis expression clause.
+     */
+    multiply : {
+        value : function (rightOperand) {
+            this.nodes = this.nodes.concat(binaryOperator(OPERATORS.MULTIPLY, rightOperand));
+
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
+
+    /**
+     * Adds the '*' multiply operator to the expression tree.
+     * 
+     * @param {Expr|String|Number}
+     *            rightOperand - The right operand to the binary operator.
+     * @returns {Expr} This Ramis expression clause.
+     */
+    times : {
+        value : function (rightOperand) {
+            this.nodes = this.nodes.concat(binaryOperator(OPERATORS.MULTIPLY, rightOperand));
+
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
+
+    /**
+     * Adds the '/' divide operator to the expression tree.
+     * 
+     * @param {Expr|String|Number}
+     *            rightOperand - The right operand to the binary operator.
+     * @returns {Expr} This Ramis expression clause.
+     */
+    divide : {
+        value : function (rightOperand) {
+            this.nodes = this.nodes.concat(binaryOperator(OPERATORS.DIVIDE, rightOperand));
+
+            return this;    
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
+
+    /**
+     * Adds the '/' divide operator to the expression tree.
+     * 
+     * @param {Expr|String|Number}
+     *            rightOperand - The right operand to the binary operator.
+     * @returns {Expr} This Ramis expression clause.
+     */
+    dividedBy : {
+        value : function (rightOperand) {
+            this.nodes = this.nodes.concat(binaryOperator(OPERATORS.DIVIDE, rightOperand));
+
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
+
+    /**
+     * Adds the '%' modulo operator to the expression tree.
+     * 
+     * @param {Expr|String|Number}
+     *            rightOperand - The right operand to the binary operator.
+     * @returns {Expr} This Ramis expression clause.
+     */
+    modulo : {
+        value : function (rightOperand) {
+            this.nodes = this.nodes.concat(binaryOperator(OPERATORS.MODULO, rightOperand));
+
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
+
+    /**
+     * Adds the '%' modulo operator to the expression tree.
+     * 
+     * @param {Expr|String|Number}
+     *            rightOperand - The right operand to the binary operator.
+     * @returns {Expr} This Ramis expression clause.
+     */
+    remainder : {
+        value : function (rightOperand) {
+            this.nodes = this.nodes.concat(binaryOperator(OPERATORS.MODULO, rightOperand));
+
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
+
+    /**
+     * Adds the '+' add operator to the expression tree.
+     * 
+     * @param {Expr|String|Number}
+     *            rightOperand - The right operand to the binary operator.
+     * @returns {Expr} This Ramis expression clause.
+     */
+    add : {
+        value : function (rightOperand) {
+            this.nodes = this.nodes.concat(binaryOperator(OPERATORS.ADD, rightOperand));
+
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
+
+    /**
+     * Adds the '-' subtract operator to the expression tree.
+     * 
+     * @param {Expr|String|Number}
+     *            rightOperand - The right operand to the binary operator.
+     * @returns {Expr} This Ramis expression clause.
+     */
+    subtract : {
+        value : function (rightOperand) {
+            this.nodes = this.nodes.concat(binaryOperator(OPERATORS.SUBTRACT, rightOperand));
+
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
+
+    /**
+     * Adds the '<' less than operator to the expression tree.
+     * 
+     * @param {Expr|String|Number}
+     *            [rightOperand] - The right operand to the binary operator.
+     * @returns {Expr} This Ramis expression clause.
+     */
+    lessThan : {
+        value : function (rightOperand) {
+            this.nodes = this.nodes.concat(binaryOperator(OPERATORS.MULTIPLY, rightOperand));
+
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
+
+    /**
+     * Adds the '<=' less than equals operator to the expression tree.
+     * 
+     * @param {Expr|String|Number}
+     *            [rightOperand] - The right operand to the binary operator.
+     * @returns {Expr} This Ramis expression clause.
+     */
+    lessThanEquals : {
+        value : function (rightOperand) {
+            this.nodes = this.nodes.concat(binaryOperator(OPERATORS.LESS_THAN_EQUALS, rightOperand));
+
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
+
+    /**
+     * Adds the '>' greater than operator to the expression tree.
+     * 
+     * @param {Expr|String|Number}
+     *            [rightOperand] - The right operand to the binary operator.
+     * @returns {Expr} This Ramis expression clause.
+     */
+    greaterThan : {
+        value : function (rightOperand) {
+            this.nodes = this.nodes.concat(binaryOperator(OPERATORS.GREATER_THAN, rightOperand));
+
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
+
+    /**
+     * Adds the '>=' greater than equals operator to the expression tree.
+     * 
+     * @param {Expr|String|Number}
+     *            [rightOperand] - The right operand to the binary operator.
+     * @returns {Expr} This Ramis expression clause.
+     */
+    greaterThanEquals : {
+        value : function (rightOperand) {
+            this.nodes = this.nodes.concat(binaryOperator(OPERATORS.GREATER_THAN_EQUALS, rightOperand));
+
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
+
+    /**
+     * Adds the '=' or '==' equals operator to the expression tree.
+     * 
+     * @param {Expr|String|Number}
+     *            rightOperand - The right operand to the binary operator.
+     * @returns {Expr} This Ramis expression clause.
+     */
+    equals : {
+        value : function (rightOperand) {
+            this.nodes = this.nodes.concat(binaryOperator(OPERATORS.EQUALS, rightOperand));
+
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
+
+    /**
+     * Adds the '!=' not equals operator to the expression tree.
+     * 
+     * @param {Expr|String|Number}
+     *            [rightOperand] - The right operand to the binary operator.
+     * @returns {Expr} This Ramis expression clause.
+     */
+    notEquals : {
+        value : function (rightOperand) {
+            this.nodes = this.nodes.concat(binaryOperator(OPERATORS.NOT_EQUALS, rightOperand));
+
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
+
+    /**
+     * Adds the 'AND' operator to the expression tree.
+     * 
+     * @param {Expr|String|Number}
+     *            [rightOperand] - The right operand to the binary operator.
+     * @returns {Expr} This Ramis expression clause.
+     */
+    and : {
+        value : function (rightOperand) {
+            this.nodes = this.nodes.concat(binaryOperator(OPERATORS.AND, rightOperand));
+
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
+
+    /**
+     * Adds the 'OR' operator to the expression tree.
+     * 
+     * @param {Expr|String|Number}
+     *            [rightOperand] - The right operand to the binary operator.
+     * @returns {Expr} This Ramis expression clause.
+     */
+    or : {
+        value : function (rightOperand) {
+            this.nodes = this.nodes.concat(binaryOperator(OPERATORS.OR, rightOperand));
+
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
+
+    /**
+     * Adds the 'LIKE' operator to the expression tree.
+     * 
+     * @param {Expr|String|Number}
+     *            [rightOperand] - The right operand to the binary operator.
+     * @returns {Expr} This Ramis expression clause.
+     */
+    like : {
+        value : function (rightOperand) {
+            this.nodes = this.nodes.concat(binaryOperator(OPERATORS.LIKE, rightOperand));
+
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
+
+    /**
+     * Adds the 'GLOB' operator to the expression tree.
+     * 
+     * @param {Expr|String|Number}
+     *            [rightOperand] - The right operand to the binary operator.
+     * @returns {Expr} This Ramis expression clause.
+     */
+    glob : {
+        value : function (rightOperand) {
+            this.nodes = this.nodes.concat(binaryOperator(OPERATORS.GLOB, rightOperand));
+
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
+
+    /**
+     * Adds the 'REGEXP' operator to the expression tree.
+     * 
+     * @param {Expr|String|Number}
+     *            [rightOperand] - The right operand to the binary operator.
+     * @returns {Expr} This Ramis expression clause.
+     */
+    regexp : {
+        value : function (rightOperand) {
+            this.nodes = this.nodes.concat(binaryOperator(OPERATORS.REGEXP, rightOperand));
+
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
+
+    /**
+     * Adds the 'MATCH' operator to the expression tree.
+     * 
+     * @param {Expr|String|Number}
+     *            [rightOperand] - The right operand to the binary operator.
+     * @returns {Expr} This Ramis expression clause.
+     */
+    match : {
+        value : function (rightOperand) {
+            this.nodes = this.nodes.concat(binaryOperator(OPERATORS.MATCH, rightOperand));
+
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
+
+    /**
+     * Adds the 'IS' operator to the expression tree.
+     * 
+     * @param {Expr|String|Number}
+     *            [rightOperand] - The right operand to the binary operator.
+     * @returns {Expr} This Ramis expression clause.
+     */
+    is : {
+        value : function (rightOperand) {
+            this.nodes = this.nodes.concat(binaryOperator(OPERATORS.IS, rightOperand));
+
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
+
+    /**
+     * Adds the 'IS NOT' operator to the expression tree.
+     * 
+     * @param {Expr|String|Number}
+     *            [rightOperand] - The right operand to the binary operator.
+     * @returns {Expr} This Ramis expression clause.
+     */
+    isNot : {
+        value : function (rightOperand) {
+            this.nodes = this.nodes.concat(binaryOperator(OPERATORS.IS_NOT, rightOperand));
+
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
+
+    /**
+     * Adds the 'IN' operator to the expression tree.
+     * 
+     * @param {Expr|String|Number}
+     *            [rightOperand] - The right operand to the binary operator.
+     * @returns {Expr} This Ramis expression clause.
+     */
+    in : {
+        value : function (rightOperand) {
+            this.nodes = this.nodes.concat(binaryOperator(OPERATORS.IN, rightOperand));
+
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
+
+    /**
+     * Adds the 'CAST' function to the expression tree.
+     * 
+     * @param {Expr|String|Number}
+     *            expr - The object to cast.
+     * @param {TypeConstant}
+     *            toType - The type to convert or cast the expr to.
+     * @returns {Expr} This Ramis expression clause.
+     */
+    cast : {
+        value : function (expr, toType) {
+            this.nodes.push(" CAST ");
+            this.begin();
+            this.nodes.push(expr);
+            this.nodes.push(" AS ");
+            this.nodes.push(toType.dbType);
+            this.end();
+
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
+
+    /**
+     * Adds the 'COLLATE' function to the expression tree.
+     * 
+     * @param {Expr|String|Number}
+     *            expr - The object to collate.
+     * @param {CollateConstant}
+     *            collation - The collation.
+     * @returns {Expr} This Ramis expression clause.
+     */
+    collate : {
+        value : function (expr, collation) {
+            this.nodes.push(expr);
+            this.nodes.push(collation);
+
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
+
+    /**
+     * Adds the 'ISNULL' operation to the expression tree.
+     * 
+     * @returns {Expr} This Ramis expression clause.
+     */
+    isNull : {
+        value : function () {
+            this.nodes.push(" ISNULL");
+
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
+
+    /**
+     * Adds the 'NOTNULL' operation to the expression tree.
+     * 
+     * @returns {Expr} This Ramis expression clause.
+     */
+    notNull : {
+        value : function () {
+            this.nodes.push(" NOTNULL");
+
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
+
+    /**
+     * Adds the 'ESCAPE' operation to the expression tree.
+     * 
+     * @param {Expr}
+     *            expr - The escape expression.
+     * @returns {Expr} This Ramis expression clause.
+     */
+    escape : {
+        value : function (expr) {
+            this.nodes.push(" ESCAPE ");
+            this.nodes.push(expr);
+
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
+
+    /**
+     * Adds the 'BETWEEN' clause to the expression tree.
+     * 
+     * @param {Expr|String|Number}
+     *            leftOperand - The left operand.
+     * @param {Expr|String|Number}
+     *            rightOperand - The right operand.
+     * @returns {Expr} This Ramis expression clause.
+     */
+    between : {
+        value : function (leftOperand, rightOperand) {
+            this.nodes.push(" BETWEEN ");
+            this.nodes.push(leftOperand);
+            this.nodes.push(" AND ");
+            this.nodes.push(rightOperand);
+
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
+
+    /**
+     * Adds the 'EXISTS' clause to the expression tree.
+     * 
+     * @param {Clause}
+     *            select - A select clause.
+     * @returns {Expr} This Ramis expression clause.
+     */
+    exists : {
+        value : function (select) {
+            this.nodes.push(" EXISTS ");
+            this.begin();
+            this.nodes.push(select);
+            this.end();
+
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
+
+    /**
+     * Adds the 'CASE' clause to the expression tree.
+     * 
+     * @param {Expr}
+     *            expr - The expression.
+     * @param {Expr}
+     *            whenExpr - The when expression.
+     * @param {Expr}
+     *            thenExpr - The then expression.
+     * @param {Expr}
+     *            elseExpr - The else expression.
+     * @returns {Expr} This Ramis expression clause.
+     */
+    case : {
+        value : function (expr, whenExpr, thenExpr, elseExpr) {
+            this.nodes.push(" CASE ");
+            this.nodes.push(expr);
+            this.nodes.push(" WHEN ");
+            this.nodes.push(whenExpr);
+            this.nodes.push(" THEN ");
+            this.nodes.push(thenExpr);
+            this.nodes.push(" ELSE ");
+            this.nodes.push(elseExpr);
+            this.nodes.push(" END");
+
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
+
+    /**
+     * Adds the 'raise-function' clause to the expression tree.
+     * 
+     * @param {RaiseFunctionsConstant}
+     *            func - The raise function.
+     * @param {String}
+     *            errorMessage - The error message.
+     * @returns {Expr} This Ramis expression clause.
+     */
+    raise : {
+        value : function (func, errorMessage) {
+            this.nodes.push(" RAISE ");
+            this.begin();
+            this.nodes.push(func);
+
+            if (func !== Ramis.RAISE_FUNCTIONS.IGNORE) {
+                this.nodes.push(", ");
+                this.nodes.push(errorMessage);
+            }
+
+            this.end();
+
+            return this;
+
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
+
+    /**
+     * Adds an expression to this expression clause.
+     * 
+     * @param {Expr}
+     *            expr - An Ramis expression clause.
+     * @returns {Expr} This Ramis expression clause.
+     */
+    expr : {
+        value : function (expr) {
+            this.nodes.push(expr);
+
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
+});
 
 //TODO: Implement 'ORDER BY' for 'DELETE' statement.
 //TODO: Implement 'LIMIT' and 'OFFSET' for 'DELETE' statement.
@@ -972,48 +1179,63 @@ function TableSource(tableName, databaseName) {
     this.nodes.push(tableName);
 }
 
-TableSource.prototype = Object.create(Clause.prototype);
+TableSource.prototype = Object.create(Clause.prototype, {
+    /**
+     * Adds the 'AS table-alias' clause.
+     * 
+     * @param {String}
+     *            tableAlias - The table alias.
+     * @returns {TableSource} This source clause for cascading or chaining
+     *          additional clauses.
+     */
+    as : {
+        value : function (tableAlias) {
+            this.nodes.push(new As(tableAlias));
 
-/**
- * Adds the 'AS table-alias' clause.
- * 
- * @param {String}
- *            tableAlias - The table alias.
- * @returns {TableSource} This source clause for cascading or chaining
- *          additional clauses.
- */
-TableSource.prototype.as = function (tableAlias) {
-    this.nodes.push(new As(tableAlias));
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
 
-    return this;
-};
+    /**
+     * Adds the 'INDEXED BY index-name' clause.
+     * 
+     * @param {String}
+     *            indexName - The index name.
+     * @returns {TableSource} This source clause for cascading or chaining
+     *          additional clauses.
+     */
+    indexedBy : {
+        value : function (indexName) {
+            this.nodes.push(" INDEXED BY ");
+            this.nodes.push(indexName);
 
-/**
- * Adds the 'INDEXED BY index-name' clause.
- * 
- * @param {String}
- *            indexName - The index name.
- * @returns {TableSource} This source clause for cascading or chaining
- *          additional clauses.
- */
-TableSource.prototype.indexedBy = function (indexName) {
-    this.nodes.push(" INDEXED BY ");
-    this.nodes.push(indexName);
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
 
-    return this;
-};
+    /**
+     * Adds the 'NOT INDEXED' clause.
+     * 
+     * @returns {TableSource} This source clause for cascading or chaining
+     *          additional clauses.
+     */
+    notIndexed : {
+        value : function () {
+            this.nodes.push("NOT INDEXED");
 
-/**
- * Adds the 'NOT INDEXED' clause.
- * 
- * @returns {TableSource} This source clause for cascading or chaining
- *          additional clauses.
- */
-TableSource.prototype.notIndexed = function () {
-    this.nodes.push("NOT INDEXED");
-
-    return this;
-};
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
+});
 
 /**
  * Creates a new 'FROM source' clause.
@@ -1160,42 +1382,52 @@ function Join(source, constraint) {
     }
 }
 
-Join.prototype = Object.create(Clause.prototype);
+Join.prototype = Object.create(Clause.prototype, {
+    /**
+     * Adds the 'ON expr' clause.
+     * 
+     * @param {Expr}
+     *            expr - A new {On} clause is created and added to this clause.
+     * @returns {Join} This clause for cascading or chaining additional clauses.
+     */
+    on : {
+        value : function (expr) {
+            if (expr instanceof Expr) {
+                this.nodes.push(new On(expr));
+            } else {
+                throw new TypeError("The 'expr' argument is not valid");
+            }
 
-/**
- * Adds the 'ON expr' clause.
- * 
- * @param {Expr}
- *            expr - A new {On} clause is created and added to this clause.
- * @returns {Join} This clause for cascading or chaining additional clauses.
- */
-Join.prototype.on = function (expr) {
-    if (expr instanceof Expr) {
-        this.nodes.push(new On(expr));
-    } else {
-        throw new TypeError("The 'expr' argument is not valid");
-    }
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
 
-    return this;
-};
+    /**
+     * Adds the 'USING (colum-name1, column-name2, ... , column-nameN)' clause.
+     * 
+     * @param {Array}
+     *            columnNames - {String} elements. A new {Using} clause is created
+     *            and added to this clause.
+     * @returns {Join} This clause for cascading or chaining additional clauses.
+     */
+    using : {
+        value : function (columnNames) {
+            if (columnNames instanceof Array) {
+                this.nodes.push(new Using(columnNames));
+            } else {
+                throw new TypeError("The 'columnNames' argument is not valid");
+            }
 
-/**
- * Adds the 'USING (colum-name1, column-name2, ... , column-nameN)' clause.
- * 
- * @param {Array}
- *            columnNames - {String} elements. A new {Using} clause is created
- *            and added to this clause.
- * @returns {Join} This clause for cascading or chaining additional clauses.
- */
-Join.prototype.using = function (columnNames) {
-    if (columnNames instanceof Array) {
-        this.nodes.push(new Using(columnNames));
-    } else {
-        throw new TypeError("The 'columnNames' argument is not valid");
-    }
-
-    return this;
-};
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },  
+});
 
 /**
  * Creates a new 'LEFT JOIN source join-constraint' clause.
@@ -1552,7 +1784,7 @@ ResultColumns.prototype = Object.create(Clause.prototype);
  *            added.
  */
 function Insert(tableName, columns, values) {
-    Clause.call(this);
+    Statement.call(this);
     this.nodes.push("INSERT INTO ");
     this.nodes.push(tableName);
     this.nodes.push(" ");
@@ -1578,43 +1810,53 @@ function Insert(tableName, columns, values) {
     }
 }
 
-Insert.prototype = Object.create(Clause.prototype);
+Insert.prototype = Object.create(Statement.prototype, {
+    /**
+     * Adds the 'column-name' clause to this 'INSERT' Ramis statement.
+     * 
+     * @param {Array}
+     *            names - The elements are {String} objects. The names of columns.
+     * @param {Values|Array}
+     *            [values] - If {Array}, then a new {Values} clause is created and
+     *            added.
+     * @returns {Insert} This clause for cascading or chaining additional clauses.
+     */
+    columns : {
+        value : function (names, values) {
+            this.nodes.push(new Columns(names, values));
 
-/**
- * Adds the 'column-name' clause to this 'INSERT' Ramis statement.
- * 
- * @param {Array}
- *            names - The elements are {String} objects. The names of columns.
- * @param {Values|Array}
- *            [values] - If {Array}, then a new {Values} clause is created and
- *            added.
- * @returns {Insert} This clause for cascading or chaining additional clauses.
- */
-Insert.prototype.columns = function (names, values) {
-    this.nodes.push(new Columns(names, values));
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
 
-    return this;
-};
+    /**
+     * Adds the 'VALUES (value1, value2, ... , valueN)' clause to the 'INSERT'
+     * clause tree.
+     * 
+     * @param {Array}
+     *            values - The elements are either a {String} or an {Object}. An
+     *            {Object} will have one property where the key will be used as the
+     *            named parameter.
+     * @returns {Insert} This Ramis 'INSERT' clause.
+     */
+    values : {
+        value : function (values) {
+            if (this.previous() instanceof Columns) {
+                this.nodes.push(new Values(values));
+            } else {
+                throw new SyntaxError("A 'Values' clause should only come after a 'Columns' clause");
+            }
 
-/**
- * Adds the 'VALUES (value1, value2, ... , valueN)' clause to the 'INSERT'
- * clause tree.
- * 
- * @param {Array}
- *            values - The elements are either a {String} or an {Object}. An
- *            {Object} will have one property where the key will be used as the
- *            named parameter.
- * @returns {Insert} This Ramis 'INSERT' clause.
- */
-Insert.prototype.values = function (values) {
-    if (this.previous() instanceof Columns) {
-        this.nodes.push(new Values(values));
-    } else {
-        throw new SyntaxError("A 'Values' clause should only come after a 'Columns' clause");
+            return this; 
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
     }
-
-    return this;
-};
+});
 
 /**
  * Creates a new 'UPDATE table-name' clause.
@@ -1625,46 +1867,56 @@ Insert.prototype.values = function (values) {
  *            tableName - The name of a table to update.
  */
 function Update(tableName) {
-    Clause.call(this);
+    Statement.call(this);
     this.nodes.push("UPDATE ");
     this.nodes.push(tableName);
     this.nodes.push(" ");
 }
 
-Update.prototype = Object.create(Clause.prototype);
+Update.prototype = Object.create(Statement.prototype, {
+    /**
+     * Adds the 'SET column-name1 = value1, column-name2 = value2, ... ,
+     * column-nameN = valueN' clauses to this 'UPDATE' clause tree.
+     * 
+     * @param {Array}
+     *            columns - The elements are objects with one property for each
+     *            object where the key is the column name and the value is the value
+     *            to substitute.
+     * @returns {Update} The 'UPDATE' clause.
+     */
+    set : {
+        value : function (columns) {
+            this.nodes.push(new Set(columns));
 
-/**
- * Adds the 'SET column-name1 = value1, column-name2 = value2, ... ,
- * column-nameN = valueN' clauses to this 'UPDATE' clause tree.
- * 
- * @param {Array}
- *            columns - The elements are objects with one property for each
- *            object where the key is the column name and the value is the value
- *            to substitute.
- * @returns {Update} The 'UPDATE' clause.
- */
-Update.prototype.set = function (columns) {
-    this.nodes.push(new Set(columns));
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
 
-    return this;
-};
+    /**
+     * Adds the 'WHERE expr' clause to this 'UPDATE' clause tree.
+     * 
+     * @param {Expr}
+     *            expr
+     * @returns {Update} The 'UPDATE' clause.
+     */
+    where : {
+        value : function (expr) {
+            if (this.previous() instanceof Set) {
+                this.nodes.push(new Where(expr));
+            } else {
+                throw new SyntaxError("The 'Where' clause should only come after a 'Set' clause");
+            }
 
-/**
- * Adds the 'WHERE expr' clause to this 'UPDATE' clause tree.
- * 
- * @param {Expr}
- *            expr
- * @returns {Update} The 'UPDATE' clause.
- */
-Update.prototype.where = function (expr) {
-    if (this.previous() instanceof Set) {
-        this.nodes.push(new Where(expr));
-    } else {
-        throw new SyntaxError("The 'Where' clause should only come after a 'Set' clause");
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
     }
-
-    return this;
-};
+});
 
 /**
  * Creates a new 'DELETE FROM table-name' clause.
@@ -1675,29 +1927,34 @@ Update.prototype.where = function (expr) {
  *            tableName - A table name.
  */
 function Delete(tableName) {
-    Clause.call(this);
+    Statement.call(this);
     this.nodes.push("DELETE FROM ");
     this.nodes.push(tableName);
 }
 
-Delete.prototype = Object.create(Clause.prototype);
+Delete.prototype = Object.create(Statement.prototype, {
+    /**
+     * Adds the 'WHERE expr' clause.
+     * 
+     * @param {Expr}
+     *            expr - A SQL expression.
+     * @returns {Delete} This clause for cascading or chaining additional clauses.
+     */
+    where : {
+        value : function (expr) {
+            if (expr instanceof Expr) {
+                this.nodes.push(new Where(expr));
+            } else {
+                throw new TypeError("The 'expr' argument is not valid");
+            }
 
-/**
- * Adds the 'WHERE expr' clause.
- * 
- * @param {Expr}
- *            expr - A SQL expression.
- * @returns {Delete} This clause for cascading or chaining additional clauses.
- */
-Delete.prototype.where = function (expr) {
-    if (expr instanceof Expr) {
-        this.nodes.push(new Where(expr));
-    } else {
-        throw new TypeError("The 'expr' argument is not valid");
-    }
-
-    return this;
-};
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
+});
 
 /**
  * Creates a new 'SELECT' clause.
@@ -1705,15 +1962,18 @@ Delete.prototype.where = function (expr) {
  * @constructor
  * 
  * @param {ResultColumns|Array}
- *            [resultColumns] - An array of strings and/or object literals with
- *            the keys as the alias for column names.
+ *            [resultColumns] - Either a {ResultColumns} or an {Array}. If an
+ *            {Array}, then the elements are either {String} or {Object}. If the
+ *            element is an {Object}, the key to the property is the alias name
+ *            and the property value is the column name. The {Object} element
+ *            should only have one property.
  * @param {From}
  *            [from] - A 'FROM' clause.
  * @param {Where}
  *            [where] - A 'WHERE' clause.
  */
 function Select(resultColumns, from, where) {
-    Clause.call(this);
+    Statement.call(this);
     this.nodes.push("SELECT ");
 
     if (resultColumns !== undefined) {
@@ -1743,176 +2003,219 @@ function Select(resultColumns, from, where) {
     }
 }
 
-Select.prototype = Object.create(Clause.prototype);
+Select.prototype = Object.create(Statement.prototype, {
+    /**
+     * Adds the 'FROM' clause to the 'SELECT' clause tree.
+     * 
+     * @param {String|Source}
+     *            source - The table name. Use an object literal with the key as the
+     *            alias to implement an Ramis alias.
+     * @returns {Select} This clause for cascading or chaining additional clauses.
+     */
+    from : {
+        value : function (source) {
+            if (this.previous() instanceof ResultColumns) {
+                this.nodes.push(new From(source));
+            } else {
+                throw new SyntaxError("The 'From' clause should only come after the 'ResultColumns' clause");
+            }
 
-/**
- * Adds the 'FROM' clause to the 'SELECT' clause tree.
- * 
- * @param {String|Source}
- *            source - The table name. Use an object literal with the key as the
- *            alias to implement an Ramis alias.
- * @returns {Select} This clause for cascading or chaining additional clauses.
- */
-Select.prototype.from = function (source) {
-    if (this.previous() instanceof ResultColumns) {
-        this.nodes.push(new From(source));
-    } else {
-        throw new SyntaxError("The 'From' clause should only come after the 'ResultColumns' clause");
-    }
+            return this;
 
-    return this;
-};
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
 
-/**
- * Adds the 'JOIN' clause to the 'SELECT' clause tree.
- * 
- * @param {String|Source}
- *            source - If {String}, then a table name is assumed and a
- *            {TableSource} is created automatically.
- * @param {On|Using}
- *            [constraint] - The join constraint.
- * @returns {Select} This clause for cascading or chaining additional clauses.
- */
-Select.prototype.join = function (source, constraint) {
-    if (this.previous() instanceof From) {
-        this.nodes.push(new Join(source, constraint));
-    } else {
-        throw new SyntaxError("The 'Join' clause should only come after a 'From' clause");
-    }
+    /**
+     * Adds the 'JOIN' clause to the 'SELECT' clause tree.
+     * 
+     * @param {String|Source}
+     *            source - If {String}, then a table name is assumed and a
+     *            {TableSource} is created automatically.
+     * @param {On|Using}
+     *            [constraint] - The join constraint.
+     * @returns {Select} This clause for cascading or chaining additional clauses.
+     */
+    join : {
+        value : function (source, constraint) {
+            if (this.previous() instanceof From) {
+                this.nodes.push(new Join(source, constraint));
+            } else {
+                throw new SyntaxError("The 'Join' clause should only come after a 'From' clause");
+            }
 
-    return this;
-};
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
 
-/**
- * Adds the 'LEFT JOIN' clause to the 'SELECT' clause tree.
- * 
- * @param {String|Source}
- *            source - If {String}, then a table name is assumed and a
- *            {TableSource} is created automatically.
- * @param {On|Using}
- *            [constraint] - The join constraint.
- * @returns {Select} This clause for cascading or chaining additional clauses.
- */
-Select.prototype.leftJoin = function (source, constraint) {
-    if (this.previous() instanceof From) {
-        this.nodes.push(new LeftJoin(source, constraint));
-    } else {
-        throw new SyntaxError("The 'Left Join' clause should only come after a 'From' clause");
-    }
+    /**
+     * Adds the 'LEFT JOIN' clause to the 'SELECT' clause tree.
+     * 
+     * @param {String|Source}
+     *            source - If {String}, then a table name is assumed and a
+     *            {TableSource} is created automatically.
+     * @param {On|Using}
+     *            [constraint] - The join constraint.
+     * @returns {Select} This clause for cascading or chaining additional clauses.
+     */
+    leftJoin : {
+        value : function (source, constraint) {
+            if (this.previous() instanceof From) {
+                this.nodes.push(new LeftJoin(source, constraint));
+            } else {
+                throw new SyntaxError("The 'Left Join' clause should only come after a 'From' clause");
+            }
 
-    return this;
-};
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
 
-/**
- * Adds the 'LEFT OUTER JOIN' clause to the 'SELECT' clause tree.
- * 
- * @param {String|Source}
- *            source - If {String}, then a table name is assumed and a
- *            {TableSource} is created automatically.
- * @param {On|Using}
- *            [constraint] - The join constraint.
- * @returns {Select} This clause for cascading or chaining additional clauses.
- */
-Select.prototype.leftOuterJoin = function (source, constraint) {
-    if (this.previous() instanceof From) {
-        this.nodes.push(new LeftOuterJoin(source, constraint));
-    } else {
-        throw new SyntaxError("The 'Left Outer Join' clause should only come after a 'From' clause");
-    }
+    /**
+     * Adds the 'LEFT OUTER JOIN' clause to the 'SELECT' clause tree.
+     * 
+     * @param {String|Source}
+     *            source - If {String}, then a table name is assumed and a
+     *            {TableSource} is created automatically.
+     * @param {On|Using}
+     *            [constraint] - The join constraint.
+     * @returns {Select} This clause for cascading or chaining additional clauses.
+     */
+    leftOuterJoin : {
+        value : function (source, constraint) {
+            if (this.previous() instanceof From) {
+                this.nodes.push(new LeftOuterJoin(source, constraint));
+            } else {
+                throw new SyntaxError("The 'Left Outer Join' clause should only come after a 'From' clause");
+            }
 
-    return this;
-};
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
 
-/**
- * Adds the 'INNER JOIN join-source' clause to the 'SELECT' clause tree.
- * 
- * @param {String|Source}
- *            source - If {String}, then a table name is assumed and a
- *            {TableSource} is created automatically.
- * @param {On|Using}
- *            [constraint] - The join constraint.
- * @returns {Select} This clause for cascading or chaining additional clauses.
- */
-Select.prototype.innerJoin = function (source, constraint) {
-    if (this.previous() instanceof From) {
-        this.nodes.push(new InnerJoin(source, constraint));
-    } else {
-        throw new SyntaxError("The 'Inner Join' clause should only come after a 'From' clause");
-    }
+    /**
+     * Adds the 'INNER JOIN join-source' clause to the 'SELECT' clause tree.
+     * 
+     * @param {String|Source}
+     *            source - If {String}, then a table name is assumed and a
+     *            {TableSource} is created automatically.
+     * @param {On|Using}
+     *            [constraint] - The join constraint.
+     * @returns {Select} This clause for cascading or chaining additional clauses.
+     */
+    innerJoin : {
+        value : function (source, constraint) {
+            if (this.previous() instanceof From) {
+                this.nodes.push(new InnerJoin(source, constraint));
+            } else {
+                throw new SyntaxError("The 'Inner Join' clause should only come after a 'From' clause");
+            }
 
-    return this;
-};
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
 
-/**
- * Adds the 'CROSS JOIN join-source' clause to the 'SELECT' clause tree.
- * 
- * @param {String|Source}
- *            source - If {String}, then a table name is assumed and a
- *            {TableSource} is created automatically.
- * @param {On|Using}
- *            [constraint] - The join constraint.
- * @returns {Select} This clause for cascading or chaining additional clauses.
- */
-Select.prototype.crossJoin = function (source, constraint) {
-    if (this.previous() instanceof From) {
-        this.nodes.push(new CrossJoin(source, constraint));
-    } else {
-        throw new SyntaxError("The 'Cross Join' clause should only come after a 'From' clause");
-    }
+    /**
+     * Adds the 'CROSS JOIN join-source' clause to the 'SELECT' clause tree.
+     * 
+     * @param {String|Source}
+     *            source - If {String}, then a table name is assumed and a
+     *            {TableSource} is created automatically.
+     * @param {On|Using}
+     *            [constraint] - The join constraint.
+     * @returns {Select} This clause for cascading or chaining additional clauses.
+     */
+    crossJoin : {
+        value : function (source, constraint) {
+            if (this.previous() instanceof From) {
+                this.nodes.push(new CrossJoin(source, constraint));
+            } else {
+                throw new SyntaxError("The 'Cross Join' clause should only come after a 'From' clause");
+            }
 
-    return this;
-};
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
 
-/**
- * Adds the 'ON expr' clause to the 'SELECT' clause.
- * 
- * @param {Expr}
- *            expr - A SQL expression.
- * @returns {Select} This clause for cascading or chaining additional clauses.
- */
-Select.prototype.on = function (expr) {
-    if (this.previous() instanceof Join) {
-        this.nodes.push(new On(expr));
-    } else {
-        throw new SyntaxError("The 'On' clause should only come after a 'Join' clause");
-    }
+    /**
+     * Adds the 'ON expr' clause to the 'SELECT' clause.
+     * 
+     * @param {Expr}
+     *            expr - A SQL expression.
+     * @returns {Select} This clause for cascading or chaining additional clauses.
+     */
+    on : {
+        value : function (expr) {
+            if (this.previous() instanceof Join) {
+                this.nodes.push(new On(expr));
+            } else {
+                throw new SyntaxError("The 'On' clause should only come after a 'Join' clause");
+            }
 
-    return this;
-};
+            return this;
+        }
+    },
 
-/**
- * Adds the 'USING (column-name1, column-name2, ... , column-nameN)' clause.
- * 
- * @param {Array}
- *            columnNames - {String} elements.
- * @returns {Select} This clause for cascading or chaining additional clauses.
- */
-Select.prototype.using = function (columnNames) {
-    if (this.previous() instanceof Join) {
-        this.nodes.push(new Using(columnNames));
-    } else {
-        throw new SyntaxError("The 'Using' clause should only come after a 'Join' clause");
-    }
+    /**
+     * Adds the 'USING (column-name1, column-name2, ... , column-nameN)' clause.
+     * 
+     * @param {Array}
+     *            columnNames - {String} elements.
+     * @returns {Select} This clause for cascading or chaining additional clauses.
+     */
+    using : {
+        value : function (columnNames) {
+            if (this.previous() instanceof Join) {
+                this.nodes.push(new Using(columnNames));
+            } else {
+                throw new SyntaxError("The 'Using' clause should only come after a 'Join' clause");
+            }
 
-    return this;
-};
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
 
-/**
- * Adds the 'WHERE expr' clause to the 'SELECT' clause tree.
- * 
- * @param {Expr}
- *            expr - A SQL expression.
- * @returns {Select} This clause for cascading or chaining additional clauses.
- */
-Select.prototype.where = function (expr) {
-    if (this.previous() instanceof From || this.pervious() instanceof Join || this.previous() || JoinConstraint) {
-        this.nodes.push(new Where(expr));
-    } else {
-        throw new SyntaxError("The 'Where' clause should follow a 'From', 'Join', or 'JoinConstraint' clause");
-    }
+    /**
+     * Adds the 'WHERE expr' clause to the 'SELECT' clause tree.
+     * 
+     * @param {Expr}
+     *            expr - A SQL expression.
+     * @returns {Select} This clause for cascading or chaining additional clauses.
+     */
+    where : {
+        value : function (expr) {
+            if (this.previous() instanceof From || this.pervious() instanceof Join || this.previous() || JoinConstraint) {
+                this.nodes.push(new Where(expr));
+            } else {
+                throw new SyntaxError("The 'Where' clause should follow a 'From', 'Join', or 'JoinConstraint' clause");
+            }
 
-    return this;
-};
+            return this;    
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
+});
 
 //TODO: Implement "GROUP BY" construction.
 //TODO: Add 'ORDER BY' construction.
@@ -1938,21 +2241,26 @@ function SelectSource(select) {
     }
 }
 
-SelectSource.prototype = Object.create(SingleSource.prototype);
+SelectSource.prototype = Object.create(SingleSource.prototype, {
+    /**
+     * Adds the 'AS table-alias' clause.
+     * 
+     * @param {String}
+     *            tableAlias - The table alias.
+     * @returns {SelectSource} This clause for cascading or chaining additional
+     *          clauses.
+     */
+    as : {
+        value : function (tableAlias) {
+            this.nodes.push(new As(tableAlias));
 
-/**
- * Adds the 'AS table-alias' clause.
- * 
- * @param {String}
- *            tableAlias - The table alias.
- * @returns {SelectSource} This clause for cascading or chaining additional
- *          clauses.
- */
-SelectSource.prototype.as = function (tableAlias) {
-    this.nodes.push(new As(tableAlias));
-
-    return this;
-};
+            return this;
+        },
+        enumerable : true,
+        configurable : true,
+        writable : true,
+    },
+});
 
 /**
  * @namespace

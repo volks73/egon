@@ -35,7 +35,7 @@
  * ***** END LICENSE BLOCK ***** */
 "use strict";
 
-var EXPORTED_SYMBOLS = ["Spengler"];
+var EXPORTED_SYMBOLS = [ "Spengler" ];
 
 Components.utils.import("resource://Egon/Ramis.js");
 
@@ -91,8 +91,8 @@ const TYPES = {
 };
 
 /**
- * The column options. These are the possible properties for the 'option'
- * object of the Column constructor.
+ * The column options. These are the possible properties for the 'option' object
+ * of the Column constructor.
  * 
  * @typedef {String} OptionsConstant
  * @readonly
@@ -124,8 +124,8 @@ const CONFLICT = {
 };
 
 /**
- * The possible values for the 'ON DELETE' and 'ON UPDATE' clauses of a
- * Foreign Key SQL definition.
+ * The possible values for the 'ON DELETE' and 'ON UPDATE' clauses of a Foreign
+ * Key SQL definition.
  * 
  * @typedef {String} ActionsConstant
  * @readonly
@@ -160,9 +160,9 @@ const DEFERS = {
  * @param {String}
  *            name - The name of this table.
  * @param {Object}
- *            [schema] - An object literal the values of the properties
- *            should be Column objects and the keys will be added as
- *            properties to this table.
+ *            [schema] - An object literal the values of the properties should
+ *            be Column objects and the keys will be added as properties to this
+ *            table.
  */
 function Table (name, schema) {
     var that = this, keys, i;
@@ -189,7 +189,7 @@ function Table (name, schema) {
 
 Table.prototype = {
     _name : null,
-  
+
     /**
      * Gets an array of the columns for this table.
      * 
@@ -206,7 +206,7 @@ Table.prototype = {
 
         return columns;
     },
-    
+
     /**
      * Gets an array of foreign keys for this table.
      * 
@@ -223,7 +223,7 @@ Table.prototype = {
 
         return foreignKeys;
     },
-    
+
     /**
      * Creates a SQL string to create this table in a database. The 'IF NOT
      * EXISTS' clause is used to prevent corrupting the database or overwriting
@@ -233,7 +233,7 @@ Table.prototype = {
      */
     toString : function () {
         var sql = "CREATE TABLE IF NOT EXISTS " + this._name + " (\n", columns = this
-            .columns(), foreignKeys = this.foreignKeys(), i;
+        .columns(), foreignKeys = this.foreignKeys(), i;
 
         for (i = 0; i < columns.length; i += 1) {
             sql += columns[i] + ", \n";
@@ -241,7 +241,8 @@ Table.prototype = {
 
         for (i = 0; i < foreignKeys.length; i += 1) {
             sql += "CONSTRAINT " + foreignKeys[i].name + " FOREIGN KEY ("
-            + foreignKeys[i].column.name + ") " + foreignKeys[i] + ", \n";
+            + foreignKeys[i].column.name + ") " + foreignKeys[i]
+            + ", \n";
         }
 
         // Remove trailing newline character, comma, and space.
@@ -249,12 +250,13 @@ Table.prototype = {
 
         return sql;
     },
-    
+
     /**
      * Creates a SQL {Insert} statement to insert values into this table.
      * 
      * @param {Object}
-     *            values - The keys for each property is the property name of the column in the table.
+     *            values - The keys for each property is the property name of
+     *            the column in the table.
      * @returns {Statement} An 'INSERT' statement.
      */
     insert : function (values) {
@@ -265,14 +267,16 @@ Table.prototype = {
             insertValues.push(Ramis.param(columnKey, values[columnKey]));
         }
 
-        return Ramis.insert(this._name).columns(columnNames).values(insertValues);
+        return Ramis.insert(this._name).columns(columnNames).values(
+                insertValues);
     },
-    
+
     /**
      * Creates a SQL {Update} statement to update values in this table.
      * 
      * @param {Object}
-     *            values - The keys for each property is the property name of the column in the table.
+     *            values - The keys for each property is the property name of
+     *            the column in the table.
      * @returns {Update} An 'UPDATE' statement.
      */
     update : function (values) {
@@ -280,27 +284,39 @@ Table.prototype = {
 
         for (columnKey in values) {
             column = {};
-            column[that[columnKey].name] = Ramis
-            .param(columnKey, values[columnKey]);
+            column[that[columnKey].name] = Ramis.param(columnKey,
+                    values[columnKey]);
             columns.push(column);
         }
 
         return Ramis.update(this._name).set(columns);
     },
-    
+
     /**
      * Creates a SQL {SELECT} statement to select values from this table.
      * 
      * @param {Array}
-     *            columns - Either an array of {String} or an array of {Object}.
-     *            If {Array} of {String}, then elements are the column names. If
-     *            {Array} of {Object}, then elements are objects with one
-     *            property where the key is an alias and the value is the column
-     *            name.
-     * @returns {Select} A SQL 'SELECT' statement.
+     *            columns - Elements are {Column}. If the 'alias' property is
+     *            not null, then an 'AS alias' clause will be added for the
+     *            column name.
+     * @returns {Select} A 'SELECT' statement.
      */
     select : function (columns) {
-        
+        var columnNames = [], columnName = {}, column, i;
+
+        for (i = 0; i < columns.length; i += 1) {
+            column = columns[i];
+
+            if (column.alias) {
+                columnName = {};
+                columnName[column.alias] = column.name;
+                columnNames.push(columnName);
+            } else {
+                columnNames.push(column.name);
+            }
+        }
+
+        return Ramis.select(columnNames);
     },
 };
 
@@ -309,21 +325,21 @@ Table.prototype = {
 /**
  * Creates a SQL database column.
  * 
- * The <code>options</code> parameter for this constructor can have any or
- * all of the following properties: primaryKey, autoIncrement, notNull,
- * unique, defaultValue, collate, foreignKey. A default value is set if the
- * property is <code>undefined</code> in the option object.
+ * The <code>options</code> parameter for this constructor can have any or all
+ * of the following properties: primaryKey, autoIncrement, notNull, unique,
+ * defaultValue, collate, foreignKey. A default value is set if the property is
+ * <code>undefined</code> in the option object.
  * 
  * The <code>primaryKey</code> option is a boolean value indicating if the
  * column is the primary key for the table. The <code>autoIncrement</code>
- * option is a boolean value indicating if the ID should be auto
- * incremented. The <code>notNull</code> option is a boolean value
- * indicating if the NULL value is not acceptable. The <code>unique</code>
- * option is a boolean value indicating if the rows must have a unqiue value
- * for this column. The <code>defaultValue</code> option is the default
- * value used on 'insert' commands. The <code>collate</code> option is a
- * string from the <code>Column.collate</code> constants. The
- * <code>foreignKey</code> option is a <code>ForeignKey</code> object.
+ * option is a boolean value indicating if the ID should be auto incremented.
+ * The <code>notNull</code> option is a boolean value indicating if the NULL
+ * value is not acceptable. The <code>unique</code> option is a boolean value
+ * indicating if the rows must have a unqiue value for this column. The
+ * <code>defaultValue</code> option is the default value used on 'insert'
+ * commands. The <code>collate</code> option is a string from the
+ * <code>Column.collate</code> constants. The <code>foreignKey</code> option
+ * is a <code>ForeignKey</code> object.
  * 
  * @constructor
  * 
@@ -332,8 +348,8 @@ Table.prototype = {
  * @param {TypeConstant}
  *            type - The column type.
  * @param {OptionsConstant}
- *            [options] - An object literal with keys from the
- *            {ColumnOptions} constants.
+ *            [options] - An object literal with keys from the {ColumnOptions}
+ *            constants.
  */
 function Column (name, type, options) {
     this.name = name;
@@ -342,20 +358,20 @@ function Column (name, type, options) {
     // TODO: Add support for conflict-clause
 
     if (options) {
-        this.primaryKey = options[Spengler.OPTIONS.PRIMARY_KEY] || false;
-        this.autoIncrement = options[Spengler.OPTIONS.AUTO_INCREMENT] || false;
+        this.primaryKey = options[OPTIONS.PRIMARY_KEY] || false;
+        this.autoIncrement = options[OPTIONS.AUTO_INCREMENT] || false;
 
         // TODO: Add support for conflict-clause
-        this.notNull = options[Spengler.OPTIONS.NOT_NULL] || false;
+        this.notNull = options[OPTIONS.NOT_NULL] || false;
 
         // TODO: Add support for conflict-clause
-        this.unique = options[Spengler.OPTIONS.UNIQUE] || false;
+        this.unique = options[OPTIONS.UNIQUE] || false;
 
         // TODO: Add expression support
-        this.defaultValue = options[Spengler.OPTIONS.DEFAULT_VALUE] || 'NULL';
-        this.collate = options[Spengler.OPTIONS.COLLATE] || null;
+        this.defaultValue = options[OPTIONS.DEFAULT_VALUE] || 'NULL';
+        this.collate = options[OPTIONS.COLLATE] || null;
 
-        this.foreignKey = options[Spengler.OPTIONS.FOREIGN_KEY] || null;
+        this.foreignKey = options[OPTIONS.FOREIGN_KEY] || null;
     } else {
         this.primaryKey = false;
         this.autoIncrement = false;
@@ -377,7 +393,8 @@ Column.prototype = {
     defaultValue : 'NULL',
     collate : null,
     foreignKey : null,
-    
+    alias : null,
+
     /**
      * Returns a SQL expression with this column's name as the left operand for
      * the equals operator and a literal value for the right operand.
@@ -390,7 +407,7 @@ Column.prototype = {
     equals : function (rightOperand) {
         return Ramis.expr().column(this.name).equals(rightOperand);
     },
-    
+
     /**
      * Returns a SQL expression with this column's name as the left operand for
      * the not equals operator and a literal value for the right operand.
@@ -403,7 +420,7 @@ Column.prototype = {
     notEquals : function (rightOperand) {
         return Ramis.expr().column(this.name).notEquals(value);
     },
-    
+
     /**
      * Returns a SQL expression with this column's name as the left operand for
      * the less than operator and a literal value for the right operand.
@@ -416,7 +433,7 @@ Column.prototype = {
     lessThan : function (rightOperand) {
         return Ramis.expr().column(this.name).lessThan(rightOperand);
     },
-    
+
     /**
      * Returns a SQL expression with this column's name as the left operand for
      * the greater than operator and a literal value for the right operand.
@@ -442,7 +459,7 @@ Column.prototype = {
     lessThanEquals : function (rightOperand) {
         return Ramis.expr().column(this.name).lessThanEquals(rightOperand);
     },
-    
+
     /**
      * Returns a SQL expression with this column's name as the left operand for
      * the greater than equals operator and a literal value for the right
@@ -456,7 +473,7 @@ Column.prototype = {
     greaterThanEquals : function (rightOperand) {
         return Ramis.expr().column(this.name).greaterThanEquals(rightOperand);
     },
-    
+
     /**
      * Creates an SQL string to create the column for a table.
      * 
@@ -549,7 +566,7 @@ ForeignKey.prototype = {
             sql += "ON UPDATE " + this.onUpdate;
         }
 
-        return sql;    
+        return sql;
     },
 };
 
@@ -557,6 +574,8 @@ ForeignKey.prototype = {
  * @namespace
  */
 var Spengler = {
+    TYPES : TYPES,
+    
     /**
      * Factory method for creating a table. If table by the supplied name
      * already exists in the metadata, or schema, then the existing table is
@@ -576,8 +595,8 @@ var Spengler = {
         } else {
             return new Table(name, schema);
         }
-    },  
-    
+    },
+
     /**
      * Factory method for creating a column.
      * 
@@ -593,7 +612,7 @@ var Spengler = {
     column : function (name, type, options) {
         return new Column(name, type, options);
     },
-    
+
     /**
      * Factory method for creating a foreign key.
      * 
@@ -612,7 +631,7 @@ var Spengler = {
     foreignKey : function (name, parent, parentColumns, onDelete, onUpdate) {
         return new ForeignKey(name, parent, parentColumns, onDelete, onUpdate);
     },
-    
+
     /**
      * Initializes the object relational mapper.
      * 
@@ -639,22 +658,22 @@ var Spengler = {
      * Executes a SQL statement. Calls the 'compile' function of the statement,
      * binds the parameters, and asynchronously executes.
      * 
-     * @param {Clause}
-     *            clause 
+     * @param {Statement}
+     *            clause
      * @param {mozIStorageStatementCallback}
      *            [callback] - A callback.
      */
-    execute : function (clause, callback) {
-        var statement = clause.compile(), stmtParams, bindings, stmt, key;
+    execute : function (statement, callback) {
+        var compiledStatement = statement.compile(), stmtParams, bindings, stmt, key;
 
-        dump("statement: " + statement);
+        dump("statement: " + compiledStatement);
 
-        stmt = dbConn.createAsyncStatement(statement.toString());
+        stmt = dbConn.createAsyncStatement(compiledStatement.toString());
         stmtParams = stmt.newBindingParamsArray();
         bindings = stmtParams.newBindingParams();
 
-        for (key in statement.params) {
-            bindings.bindByName(key, statement.params[key]);
+        for (key in compiledStatement.params) {
+            bindings.bindByName(key, compiledStatement.params[key]);
         }
 
         stmtParams.addParams(bindings);
