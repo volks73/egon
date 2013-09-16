@@ -41,14 +41,14 @@ Components.utils.import("resource://Egon/Ramis.js");
 
 var dbConn, metadata = {};
 
-//TODO: Add functions for formatting and returning values appropriate for
-//interaction with the database.
-//SQLite3 supported types: NULL, INTEGER, REAL, TEXT, and BLOB. Boolean
-//values are handled as integers 0 = false, 1 = true
-//Date and Time are handled as either TEXT using the ISO8601 string:
-//YYYY-MM-DD HH:MM:SS.SSS, REAL as Julian day numbers,
-//and INTEGERs as Unix Time, the number of seconds since 1970-01-01
-//00:00:00 UTC. See column affinity documentation with SQLite3.
+// TODO: Add functions for formatting and returning values appropriate for
+// interaction with the database.
+// SQLite3 supported types: NULL, INTEGER, REAL, TEXT, and BLOB. Boolean
+// values are handled as integers 0 = false, 1 = true
+// Date and Time are handled as either TEXT using the ISO8601 string:
+// YYYY-MM-DD HH:MM:SS.SSS, REAL as Julian day numbers,
+// and INTEGERs as Unix Time, the number of seconds since 1970-01-01
+// 00:00:00 UTC. See column affinity documentation with SQLite3.
 
 /**
  * A mapping of known JavaScript variable types to SQLite column types.
@@ -154,106 +154,204 @@ const DEFERS = {
 
 // TODO: Add JSDocs to prototypes and constructors.
 
-function Statement(clause) {
-    this.clause = clause;
+/**
+ * A compiled statement.
+ * 
+ * @constructor
+ * 
+ * @param {String}
+ *            sql - The SQL string.
+ * @param {Object}
+ *            params - Each property of the object is a key/value pair where the
+ *            key is the bind parameter name and the value is the value to
+ *            substitute.
+ */
+function CompiledStatement (sql, params) {
+    this.sql = sql;
+    this.params = params;
 }
 
-Statement.prototype = {
-    clause : null,
-    compile : function () {
-        // TODO: Move 'compile' function from Ramis library to here.
-        // TODO: Remove 'Statement' prototype from Ramis Library.
+CompiledStatement.prototype = {
+    sql : null,
+    params : null,
+    toString : function () {
+        return this.sql;
     },
 };
 
-function InsertStatement(table, values) {   
-    var columnNames = [], 
-        insertValues = [], 
-        columnKey;
+/**
+ * Generates a named parameter key based on the current number of parameters.
+ * 
+ * A named parameter is created using the following pattern: 'paramA', 'paramB',
+ * 'paramC', ... 'paramAA', 'paramBB', ... 'paramAAA' and so on.
+ * 
+ * @param {Integer}
+ *            paramCount - The current number of parameters.
+ */
+function generateParamKey (paramCount) {
+    var DEFAULT_PARAM = "param", charCode = 65 + (paramCount % 26), repeat = paramCount / 26, suffix, i;
 
-    Statement.call(this);
-    
+    suffix = String.fromCharCode(charCode);
+
+    for (i = 1; i < repeat; i += 1) {
+        suffix = String.fromCharCode(charCode);
+    }
+
+    return DEFAULT_PARAM + suffix;
+}
+
+function Statement (table) {
+    this.table = table;
+}
+
+Statement.prototype = {
+    table : null,
+    clause : null,
+    compile : function () {
+        var sql = '', tree = this.clause.tree(), params = {}, paramCount = 0, node, i;
+
+        for (i = 0; i < tree.length; i += 1) {
+            node = tree[i];
+
+            if (Ramis.isParam(node)) {
+                if (!node.key) {
+                    node.key = generateParamKey(paramCount);
+                    paramCount += 1;
+                }
+
+                sql += ":" + node.key;
+                params[node.key] = node.value;
+            } else {
+                sql += node;
+            }
+        }
+
+        return new CompiledStatement(sql, params);
+    },
+};
+
+function InsertStatement (table, values) {
+    var columnNames = [], insertValues = [], columnKey;
+
+    Statement.call(this, table);
+
     for (columnKey in values) {
-        columnNames.push(that[columnKey].name);
+        columnNames.push(table[columnKey].name);
         insertValues.push(Ramis.param(columnKey, values[columnKey]));
     }
 
-    this.clause = Ramis.insert(table.name()).columns(columnNames).values(insertValues);
+    this.clause = Ramis.insert(table.__name__).columns(columnNames).values(
+            insertValues);
 }
 
 InsertStatement.prototype = Object.create(Statement.prototype);
 
-function UpdateStatement(table, values) {
-    var columns = [],
-        column,
-        columnKey;
-    
-    Statement.call(this);
-    
+function UpdateStatement (table, values) {
+    var columns = [], column, columnKey;
+
+    Statement.call(this, table);
+
     for (columnKey in values) {
         column = {};
-        column[that[columnKey].name] = Ramis.param(columnKey,
-                values[columnKey]);
+        column[table[columnKey].name] = Ramis.param(columnKey, values[columnKey]);
         columns.push(column);
     }
-    
-    this.clause = Ramis.update(table.name()).set(columns);
+
+    this.clause = Ramis.update(table.__name__).set(columns);
 }
 
 UpdateStatement.prototype = Object.create(Statement.prototype, {
     where : {
         value : function (expr) {
             this.clause.where(expr);
+            
+            return this;
         },
         enumerable : true,
         configurable : true,
         writable : true,
     },
+
+// TODO: Implement 'LIMIT BY' with a helper function 'limitBy'.
 });
 
-function SelectStatement(table, columns) {
-    var columnNames = [], 
-        columnName = {},
-        column,
-        i;
+function SelectStatement (table, columns) {
+    var columnNames, columnName = {}, column, i;
 
-    Statement.call(this);
+    Statement.call(this, table);
+
+    if (columns) {
+        columnNames = [];
+        for (i = 0; i < columns.length; i += 1) {
+            column = columns[i];
     
-    for (i = 0; i < columns.length; i += 1) {
-        column = columns[i];
-
-        if (column.alias) {
-            columnName = {};
-            columnName[column.alias] = column.name;
-            columnNames.push(columnName);
-        } else {
-            columnNames.push(column.name);
+            if (column.alias) {
+                columnName = {};
+                columnName[column.alias] = column.name;
+                columnNames.push(columnName);
+            } else {
+                columnNames.push(column.name);
+            }
         }
-    }  
+    } else {
+        
+    }
     
-    this.clause = Ramis.select(columns).from(table.name());
+    this.clause = Ramis.select(columnNames).from(table.__name__);
 }
 
 SelectStatement.prototype = Object.create(Statement.prototype, {
     join : {
         value : function (table) {
-            // TODO: Find foreign keys and automatically add appropriate join clauses to this clause.
-            this.clause.join(table.name());
+            // TODO: Find foreign keys and automatically add appropriate join
+            // clauses to this clause.
+            // TODO: Add optional parameter 'type' which can be 'LEFT', 'OUTER',
+            // 'CROSS', 'INNER', etc.
+            this.clause.join(table.__name__);
+            
+            return this;s
         },
         enumerable : true,
         configurable : true,
         writable : true,
     },
-    
+
     where : {
         value : function (expr) {
             this.clause.where(expr);
+            
+            return this;
         },
         enumerable : true,
         configurable : true,
         writable : true,
     },
+
+// TODO: Implement helper function 'limitBy' for 'LIMIT BY' clause.
+// TODO: Implement helper function 'groupBy' for 'GROUP BY' clause.
+// TODO: Implement helper function 'orderBy' fro 'ORDER BY' clause.
 });
+
+function Row (id) {
+    this.id = id || null;
+}
+
+Row.prototype = {
+    id : null,
+    toString : function () {
+        var keys = Object.keys(this), that = this, str = "", key, i;
+        
+        for (i = 0; i < keys.length; i += 1) {
+            key = keys[i];
+            
+            if (typeof that[key] !== "function") {
+                str += key + ": " + that[key] + "\n";
+            }
+        }
+        
+        return str;
+    },
+};
 
 /**
  * Creates a SQL database table.
@@ -270,7 +368,7 @@ SelectStatement.prototype = Object.create(Statement.prototype, {
 function Table (name, schema) {
     var that = this, keys, i;
 
-    this._name = name;
+    this.__name__ = name;
 
     if (typeof schema !== 'undefined') {
         keys = Object.keys(schema);
@@ -287,20 +385,15 @@ function Table (name, schema) {
         }
     }
 
-    metadata[this._name] = this;
+    metadata[this.__name__] = this;
 }
 
 Table.prototype = {
-    _name : null,
-    
-    /**
-     * Gets the name.
-     * 
-     * @returns {String}
-     */
-    name : function () {
-        return _name;
-    },
+
+    // The double underscore is not necessarily good JS convention, but it
+    // avoids name collisions with a 'name' property that is the 'name' column
+    // of a table.
+    __name__ : null,
 
     /**
      * Gets an array of the columns for this table.
@@ -344,8 +437,8 @@ Table.prototype = {
      * @returns {String} A SQL string.
      */
     toString : function () {
-        var sql = "CREATE TABLE IF NOT EXISTS " + this._name + " (\n", columns = this
-        .columns(), foreignKeys = this.foreignKeys(), i;
+        var sql = "CREATE TABLE IF NOT EXISTS " + this.__name__ + " (\n", columns = this
+                .columns(), foreignKeys = this.foreignKeys(), i;
 
         for (i = 0; i < columns.length; i += 1) {
             sql += columns[i] + ", \n";
@@ -353,8 +446,8 @@ Table.prototype = {
 
         for (i = 0; i < foreignKeys.length; i += 1) {
             sql += "CONSTRAINT " + foreignKeys[i].name + " FOREIGN KEY ("
-            + foreignKeys[i].column.name + ") " + foreignKeys[i]
-            + ", \n";
+                    + foreignKeys[i].column.name + ") " + foreignKeys[i]
+                    + ", \n";
         }
 
         // Remove trailing newline character, comma, and space.
@@ -399,9 +492,27 @@ Table.prototype = {
     select : function (columns) {
         return new SelectStatement(this, columns);
     },
+    
+    createRow : function () {
+        var row = new Row(), keys = Object.keys(this), key, i, that = this;
+        
+        for (i = 0; i < keys.length; i += 1) {
+            key = keys[i];
+            
+            if (that[key] instanceof Column) {
+                Object.defineProperty(row, key, {
+                    enumerable : true,
+                    writable : true,
+                    configurable : false,
+                });
+            }
+        }
+        
+        return row;
+    },
 };
 
-//TODO: Add support for creating indices for a table on a column.
+// TODO: Add support for creating indices for a table on a column.
 
 /**
  * Creates a SQL database column.
@@ -630,7 +741,7 @@ ForeignKey.prototype = {
     onDelete : false,
     onUpdate : false,
     toString : function () {
-        var sql = " REFERENCES " + this.parent._name + " (", i;
+        var sql = " REFERENCES " + this.parent.__name__ + " (", i;
 
         for (i = 0; i < this.columns.length; i += 1) {
             sql += this.columns[i].name + ",";
@@ -651,12 +762,23 @@ ForeignKey.prototype = {
     },
 };
 
+function createResult(table, row) {
+    var result = table.createRow(), keys = Object.keys(result), key, i;
+        
+    for (i = 0; i < keys.length; i += 1) {
+        key = keys[i];
+        result[key] = row.getResultByName(table[key].name);
+    }
+    
+    return result;
+}
+
 /**
  * @namespace
  */
 var Spengler = {
     TYPES : TYPES,
-    
+
     /**
      * Factory method for creating a table. If table by the supplied name
      * already exists in the metadata, or schema, then the existing table is
@@ -740,14 +862,14 @@ var Spengler = {
      * binds the parameters, and asynchronously executes.
      * 
      * @param {Statement}
-     *            clause
+     *            statement - The SQL expression language statement which can be compiled into a SQL string and its bind parameters.
      * @param {mozIStorageStatementCallback}
      *            [callback] - A callback.
      */
     execute : function (statement, callback) {
         var compiledStatement = statement.compile(), stmtParams, bindings, stmt, key;
 
-        dump("statement: " + compiledStatement);
+        dump("statement: " + compiledStatement + "\n");
 
         stmt = dbConn.createAsyncStatement(compiledStatement.toString());
         stmtParams = stmt.newBindingParamsArray();
@@ -759,7 +881,37 @@ var Spengler = {
 
         stmtParams.addParams(bindings);
         stmt.bindParameters(stmtParams);
-
-        stmt.executeAsync(callback);
+        
+        var rows = [];
+        
+        stmt.executeAsync({
+            handleResult : function (aResultSet) {
+                var row;
+                
+                for (row = aResultSet.getNextRow(); row; row = aResultSet.getNextRow()) {
+                    rows.push(row);
+                }
+            },
+            
+            handleError : function (aError) {
+                
+            },
+            
+            handleCompletion : function (aReason) {
+                var i, results = [];
+                
+                if (aReason === Components.interfaces.mozIStorageStatementCallback.REASON_FINISHED) {
+                    if (typeof callback !== "undefined") {
+                        for (i = 0; i < rows.length; i += 1) {
+                            results.push(createResult(statement.table, rows[i]));
+                        }
+                        
+                        callback(results);    
+                    }
+                } else {
+                   // TODO: Add error log.
+                }
+            },
+        });
     },
 };

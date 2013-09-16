@@ -35,7 +35,7 @@
  * ***** END LICENSE BLOCK ***** */
 "use strict";
 
-var EXPORTED_SYMBOLS = ["Ramis"];
+var EXPORTED_SYMBOLS = ["Ramis", "Param"];
 
 /**
  * The possible values for the 'collate' option.
@@ -154,32 +154,8 @@ Param.prototype = {
     },
 };
 
-// TODO: Move 'CompiledStatement' to 'Spengler'.
-
-/**
- * A bindable and SQL executable statement.
- * 
- * @constructor
- * 
- * @param {String}
- *            sql - The SQL string.
- * @param {Object}
- *            params - Each property of the object is a key/value pair where the
- *            key is the bind parameter name and the value is the value to
- *            substitute.
- */
-function CompiledStatement(sql, params) {
-    this.sql = sql;
-    this.params = params;
-}
-
-CompiledStatement.prototype = {
-    sql : null,
-    params : null,
-    toString : function () {
-        return this.sql;
-    },
-};
+// TODO: May want to change 'Param' to 'Literal' and move parameter binding and handling to the SQL expression language level and have clause building only use literals. There is not a clear division of labor here yet. So, for now bind parameters are handled at this level to make it very difficult to create statements that can be executed directly without parameter binding. 
+// TODO: May want to change 'Clause' to 'Node'.
 
 /**
  * Creates a new clause.
@@ -241,82 +217,18 @@ Clause.prototype = {
     },
 };
 
-/**
- * Generates a named parameter key based on the current number of parameters.
- * 
- * A named parameter is created using the following pattern: 'paramA', 'paramB',
- * 'paramC', ... 'paramAA', 'paramBB', ... 'paramAAA' and so on.
- * 
- * @param {Integer}
- *            paramCount - The current number of parameters.
- */
-function generateParamKey(paramCount) {
-    var DEFAULT_PARAM = "param", 
-    charCode = 65 + (paramCount % 26), 
-    repeat = paramCount / 26, 
-    suffix, 
-    i;
+// TODO: Change "Param" which is a statment level construct to "Literal". A literal is more generic, and a SQL expression language should be responsible for handling literals, but the SQL clause builder is only responsible for creating SQL strings that are valid SQL.
 
-    suffix = String.fromCharCode(charCode);
+function Literal(value) {
+    this.value = "'" + value + "'";
+};
 
-    for (i = 1; i < repeat; i += 1) {
-        suffix = String.fromCharCode(charCode);
-    }
-
-    return DEFAULT_PARAM + suffix;
-}
-
-// TODO: Move 'Statement' to Spengler. Ramis is only clause generation and should be independent of execution. A statement implements compiling and execution.
-
-/**
- * A clause that can be compiled for excution.
- * 
- * @constructor
- */
-function Statement() {
-    Clause.call(this);
-}
-
-Statement.prototype = Object.create(Clause.prototype, {
-    /**
-     * Converts a clause into a parameter bindable and executable statement.
-     * 
-     * @param {Clause}
-     *            clause
-     * @returns {Statement}
-     */
-    compile : {
-        value : function () {
-            var sql = '', 
-            tree = this.tree(), 
-            params = {}, 
-            paramCount = 0, 
-            node, 
-            i;
-
-            for (i = 0; i < tree.length; i += 1) {
-                node = tree[i];
-
-                if (node instanceof Param) {
-                    if (!node.key) {
-                        node.key = generateParamKey(paramCount);
-                        paramCount += 1;
-                    }
-
-                    sql += ":" + node.key;
-                    params[node.key] = node.value;
-                } else {
-                    sql += node;
-                }
-            }
-
-            return new CompiledStatement(sql, params);
-        },
-        enumerable : true,
-        configurable : true,
-        writable : true,
+Literal.prototype = {
+    value : null,
+    toString : function () {
+        return this.value;
     },
-});
+};
 
 /**
  * Adds a binary operator and its right operand to the tree. The left operand is
@@ -359,12 +271,12 @@ Expr.prototype = Object.create(Clause.prototype, {
     /**
      * Adds a literal value to the expression tree. This does not directly add
      * the value, but adds {Param} to the tree that is later bound to the value
-     * just before execution. This avoids problems with Ramis injection attacks
+     * just before execution. This avoids problems with SQL injection attacks
      * and other bad things.
      * 
      * @param {Object}
      *            value - A literal value.
-     * @returns {Expr} This Ramis expression clause.
+     * @returns {Expr} This SQL expression clause.
      */
     literal : {
         value : function (value) {
@@ -1113,9 +1025,6 @@ Expr.prototype = Object.create(Clause.prototype, {
     },
 });
 
-//TODO: Implement 'ORDER BY' for 'DELETE' statement.
-//TODO: Implement 'LIMIT' and 'OFFSET' for 'DELETE' statement.
-
 /**
  * Creates a new 'AS alias' clause.
  * 
@@ -1753,11 +1662,11 @@ function getResultColumn(columnName) {
  */
 function ResultColumns(columnNames) {
     var count,
-    i;
+        i;
 
     Clause.call(this);
 
-    if (columnNames) {
+    if (typeof columnNames !== "undefined") {
         count = columnNames.length - 1;
 
         for (i = 0; i < count; i += 1) {
@@ -1788,7 +1697,7 @@ ResultColumns.prototype = Object.create(Clause.prototype);
  *            added.
  */
 function Insert(tableName, columns, values) {
-    Statement.call(this);
+    Clause.call(this);
     this.nodes.push("INSERT INTO ");
     this.nodes.push(tableName);
     this.nodes.push(" ");
@@ -1814,7 +1723,7 @@ function Insert(tableName, columns, values) {
     }
 }
 
-Insert.prototype = Object.create(Statement.prototype, {
+Insert.prototype = Object.create(Clause.prototype, {
     /**
      * Adds the 'column-name' clause to this 'INSERT' Ramis statement.
      * 
@@ -1871,13 +1780,13 @@ Insert.prototype = Object.create(Statement.prototype, {
  *            tableName - The name of a table to update.
  */
 function Update(tableName) {
-    Statement.call(this);
+    Clause.call(this);
     this.nodes.push("UPDATE ");
     this.nodes.push(tableName);
     this.nodes.push(" ");
 }
 
-Update.prototype = Object.create(Statement.prototype, {
+Update.prototype = Object.create(Clause.prototype, {
     /**
      * Adds the 'SET column-name1 = value1, column-name2 = value2, ... ,
      * column-nameN = valueN' clauses to this 'UPDATE' clause tree.
@@ -1931,12 +1840,12 @@ Update.prototype = Object.create(Statement.prototype, {
  *            tableName - A table name.
  */
 function Delete(tableName) {
-    Statement.call(this);
+    Clause.call(this);
     this.nodes.push("DELETE FROM ");
     this.nodes.push(tableName);
 }
 
-Delete.prototype = Object.create(Statement.prototype, {
+Delete.prototype = Object.create(Clause.prototype, {
     /**
      * Adds the 'WHERE expr' clause.
      * 
@@ -1977,10 +1886,10 @@ Delete.prototype = Object.create(Statement.prototype, {
  *            [where] - A 'WHERE' clause.
  */
 function Select(resultColumns, from, where) {
-    Statement.call(this);
+    Clause.call(this);
     this.nodes.push("SELECT ");
 
-    if (resultColumns !== undefined) {
+    if (typeof resultColumns !== "undefined") {
         if (resultColumns instanceof Array) {
             this.nodes.push(new ResultColumns(resultColumns));
         } else if (resultColumns instanceof ResultColumns) {
@@ -1988,6 +1897,8 @@ function Select(resultColumns, from, where) {
         } else {
             throw new TypeError("The 'resultColumns' argument is not valid");
         }
+    } else {
+        this.nodes.push(new ResultColumns());
     }
 
     if (from !== undefined) {
@@ -2007,7 +1918,7 @@ function Select(resultColumns, from, where) {
     }
 }
 
-Select.prototype = Object.create(Statement.prototype, {
+Select.prototype = Object.create(Clause.prototype, {
     /**
      * Adds the 'FROM' clause to the 'SELECT' clause tree.
      * 
@@ -2044,7 +1955,7 @@ Select.prototype = Object.create(Statement.prototype, {
      */
     join : {
         value : function (source, constraint) {
-            if (this.previous() instanceof From) {
+            if (this.previous() instanceof From || this.previous() instanceof Join) {
                 this.nodes.push(new Join(source, constraint));
             } else {
                 throw new SyntaxError("The 'Join' clause should only come after a 'From' clause");
@@ -2501,5 +2412,15 @@ var Ramis = {
      */
     where : function (expr) {
         return new Where(expr);
+    },
+    
+    /**
+     * Checks if a node in a clause is a {Param}.
+     * 
+     * @param {Clause} - The node.
+     * @returns True if the node is an instance of {Param}; otherwise, False.
+     */
+    isParam : function (node) {
+        return node instanceof Param;
     },
 };

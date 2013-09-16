@@ -64,10 +64,16 @@ var testUpdate1 = jobOrderNumbersTable.update({alias : "test2", accountNumber : 
 Spengler.execute(testUpdate1);
 
 var testSelect1 = jobOrderNumbersTable.select();
-Spengler.execute(testSelect1, {});
+Spengler.execute(testSelect1, function (results) {
+    var i;
+    
+    for (i = 0; i < results.length; i += 1) {
+        dump(results[i] + "\n");
+    }
+});
 
-var testSelect2 = jobOrderNumberTable.select().where(jobOrderNumbersTable.id.equals(1));
-Spengler.execute(testSelect2, {});
-
-var testSelect3 = purchaseOrdersTable.select().join(companiesTable).join(jobOrderNumbersTable).where(purchaseOrdersTable.id.equals(1));
-Spengler.execute(testSelect3, {});
+//var testSelect2 = jobOrderNumbersTable.select().where(jobOrderNumbersTable.id.equals(1));
+//Spengler.execute(testSelect2, {});
+//
+//var testSelect3 = purchaseOrdersTable.select().join(companiesTable).join(jobOrderNumbersTable).where(purchaseOrdersTable.id.equals(1));
+//Spengler.execute(testSelect3, {});
